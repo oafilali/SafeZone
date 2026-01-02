@@ -9,6 +9,9 @@ environment {
     TEAM_EMAIL = 'othmane.afilali@gritlab.ax,jedi.reston@gritlab.ax'
     EMAIL_JEDI = 'jedi.reston@gritlab.ax'
     EMAIL_OZZY = 'othmane.afilali@gritlab.ax'
+
+    // Add this line for Karma/Angular tests
+    CHROME_BIN = '/usr/bin/google-chrome'
 }
 
     stages {
