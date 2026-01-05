@@ -4,7 +4,14 @@ set -e
 # AWS Deployment Configuration
 DEPLOY_HOST="ec2-user@51.21.198.139"
 DEPLOY_PATH="/home/ec2-user/buy-01-app"
-SSH_KEY="$HOME/Downloads/lastreal.pem"
+# Try Jenkins workspace first, then fall back to home directory
+if [ -f "$WORKSPACE/lastreal.pem" ]; then
+    SSH_KEY="$WORKSPACE/lastreal.pem"
+elif [ -f "$HOME/Downloads/lastreal.pem" ]; then
+    SSH_KEY="$HOME/Downloads/lastreal.pem"
+else
+    SSH_KEY="/var/lib/jenkins/.ssh/aws-deploy-key.pem"
+fi
 AWS_PUBLIC_IP="51.21.198.139"
 
 # Colors for output
