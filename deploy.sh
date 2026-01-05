@@ -29,8 +29,9 @@ fi
 chmod 600 "$SSH_KEY"
 
 # 1. Build Docker images
-echo -e "${YELLOW}[1/5] Building Docker images...${NC}"
-docker-compose build --no-cache
+echo -e "${YELLOW}[1/5] Building Docker images for AMD64 platform...${NC}"
+docker-compose build --no-cache --build-arg BUILDPLATFORM=linux/amd64 || \
+  DOCKER_DEFAULT_PLATFORM=linux/amd64 docker-compose build --no-cache
 echo -e "${GREEN}✓ Docker images built${NC}"
 echo ""
 
@@ -82,13 +83,13 @@ rm -f *.tar
 echo ""
 echo "Running containers:"
 docker-compose ps
-ENDSSH
-
-echo -e "${GREEN}✓ Deployment completed on AWS${NC}"
-echo ""
-
-# 5. Health check
-echo -e "${YELLOW}[5/5] Performing health check...${NC}"
+    
+    # Clean up old Docker images and containers to free disk space
+    echo ""
+    echo "Cleaning up unused Docker resources..."
+    docker container prune -f
+    docker image prune -a -f --filter "until=24h"
+    echo "Cleanup completed"
 sleep 10
 
 # Check if services are responding
