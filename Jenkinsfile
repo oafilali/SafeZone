@@ -92,6 +92,21 @@ environment {
                 echo 'Deploying application to AWS...'
                 script {
                     sh '''
+                        # Build all Docker images with proper tags
+                        echo "Building Docker images..."
+                        
+                        # Build backend services
+                        docker build -t buy01-pipeline-service-registry:latest ./service-registry
+                        docker build -t buy01-pipeline-api-gateway:latest ./api-gateway
+                        docker build -t buy01-pipeline-user-service:latest ./user-service
+                        docker build -t buy01-pipeline-product-service:latest ./product-service
+                        docker build -t buy01-pipeline-media-service:latest ./media-service
+                        
+                        # Build frontend
+                        docker build -t buy01-pipeline-frontend:latest ./buy-01-ui
+                        
+                        echo "✓ All Docker images built"
+                        
                         # Make deploy script executable
                         chmod +x deploy.sh
                         

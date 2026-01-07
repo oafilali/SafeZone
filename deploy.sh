@@ -38,11 +38,10 @@ fi
 # Ensure correct permissions on SSH key
 chmod 600 "$SSH_KEY"
 
-# 1. Build Docker images
-echo -e "${YELLOW}[1/5] Building Docker images for AMD64 platform...${NC}"
-docker-compose build --no-cache --build-arg BUILDPLATFORM=linux/amd64 || \
-  DOCKER_DEFAULT_PLATFORM=linux/amd64 docker-compose build --no-cache
-echo -e "${GREEN}✓ Docker images built${NC}"
+# 1. Verify Docker images exist
+echo -e "${YELLOW}[1/5] Verifying Docker images...${NC}"
+docker images | grep buy01-pipeline
+echo -e "${GREEN}✓ Docker images verified${NC}"
 echo ""
 
 # 2. Prepare AWS directory
