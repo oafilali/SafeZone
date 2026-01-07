@@ -4,15 +4,23 @@ A production-ready, full-stack microservices-based e-commerce platform built wit
 
 ## 🚀 Live Deployment Status
 
-**Current Version**: Build #25 ✅  
+**Current Version**: Build #28 ✅  
 **Deployment Date**: January 7, 2026  
 **Status**: All services healthy and running
 
-- **Frontend**: http://51.21.198.139:4200
-- **API Gateway**: http://51.21.198.139:8080
-- **Service Registry**: http://51.21.198.139:8761
+- **Frontend**: http://16.170.204.134:4200
+- **API Gateway**: http://16.170.204.134:8080
+- **Service Registry**: http://16.170.204.134:8761
+- **Jenkins CI/CD**: http://13.60.233.212:8080
+
+### Infrastructure Upgrades
+
+- ✅ **15GB disk space** on both Jenkins and deployment servers (upgraded from 8GB)
+- ✅ **Aggressive cleanup**: 30min Jenkins, 1h AWS, builder cache + volumes
+- ✅ **68% disk usage** on AWS (was 94%) - 9.2GB free space
 
 ### CI/CD Pipeline
+
 - ✅ Automated builds on every commit
 - ✅ Unit & integration tests (JUnit + Karma)
 - ✅ Docker containerization with version tagging
