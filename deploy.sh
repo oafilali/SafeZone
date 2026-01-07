@@ -5,7 +5,7 @@ set -e
 BUILD_NUMBER=${1:-latest}
 
 # AWS Deployment Configuration
-DEPLOY_HOST="ec2-user@51.21.198.139"
+DEPLOY_HOST="ec2-user@16.170.204.134"
 DEPLOY_PATH="/home/ec2-user/buy-01-app"
 
 # Find SSH key - check multiple locations
@@ -18,7 +18,7 @@ else
     exit 1
 fi
 
-AWS_PUBLIC_IP="51.21.198.139"
+AWS_PUBLIC_IP="16.170.204.134"
 
 # Colors for output
 GREEN='\033[0;32m'
