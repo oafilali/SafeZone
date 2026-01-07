@@ -49,7 +49,7 @@ services:
     image: buy01-pipeline-service-registry:latest
     container_name: buy-01-service-registry
     ports:
-      - "8761:8761"
+      - "9999:8761"
     networks:
       - buy-01-network
 
