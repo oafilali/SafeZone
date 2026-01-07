@@ -2,6 +2,23 @@
 
 A production-ready, full-stack microservices-based e-commerce platform built with **Spring Boot** and **Angular**, featuring event-driven architecture with **Apache Kafka**, service discovery, and containerized deployment.
 
+## 🚀 Live Deployment Status
+
+**Current Version**: Build #25 ✅  
+**Deployment Date**: January 7, 2026  
+**Status**: All services healthy and running
+
+- **Frontend**: http://51.21.198.139:4200
+- **API Gateway**: http://51.21.198.139:8080
+- **Service Registry**: http://51.21.198.139:8761
+
+### CI/CD Pipeline
+- ✅ Automated builds on every commit
+- ✅ Unit & integration tests (JUnit + Karma)
+- ✅ Docker containerization with version tagging
+- ✅ Health checks with automatic rollback
+- ✅ Disk space management & cleanup
+
 ## 🏗️ Architecture Overview
 
 This project implements a modern microservices architecture with the following components:
