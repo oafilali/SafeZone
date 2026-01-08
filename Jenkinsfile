@@ -34,21 +34,6 @@ pipeline {
         JENKINS_SCRIPTS = './jenkins'
         FRONTEND_DIR = 'buy-01-ui'
     }
-    
-    // Helper function to render email templates with variable substitution
-    def renderEmailTemplate(templatePath) {
-        def template = readFile(templatePath)
-        
-        // Substitute Jenkins environment variables
-        template = template.replace('${BUILD_URL}', env.BUILD_URL ?: '')
-        template = template.replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
-        template = template.replace('${JOB_NAME}', env.JOB_NAME ?: '')
-        template = template.replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
-        template = template.replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
-        template = template.replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
-        
-        return template
-    }
 
     stages {
         stage('Validate Environment') {
@@ -261,7 +246,14 @@ pipeline {
             
             script {
                 try {
-                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-success.html")
+                    def template = readFile("${JENKINS_SCRIPTS}/email-success.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
                     mail(
                         subject: "✅ BUILD SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
@@ -280,7 +272,14 @@ pipeline {
             
             script {
                 try {
-                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-failure.html")
+                    def template = readFile("${JENKINS_SCRIPTS}/email-failure.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
                     mail(
                         subject: "❌ BUILD FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
@@ -297,7 +296,14 @@ pipeline {
             
             script {
                 try {
-                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-unstable.html")
+                    def template = readFile("${JENKINS_SCRIPTS}/email-unstable.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
                     mail(
                         subject: "⚠️ BUILD UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
