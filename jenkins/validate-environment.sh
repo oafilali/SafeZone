@@ -75,13 +75,16 @@ fi
 
 # Check docker-compose
 echo -n "Checking docker-compose... "
-if command -v docker-compose &> /dev/null || [ -x /usr/local/bin/docker-compose ]; then
-    COMPOSE_VERSION=$(/usr/local/bin/docker-compose -v 2>/dev/null || docker-compose -v)
+if command -v docker-compose &> /dev/null; then
+    COMPOSE_VERSION=$(docker-compose -v)
+    echo -e "${GREEN}✓${NC} ($COMPOSE_VERSION)"
+elif [ -x /usr/local/bin/docker-compose ]; then
+    COMPOSE_VERSION=$(/usr/local/bin/docker-compose -v)
     echo -e "${GREEN}✓${NC} ($COMPOSE_VERSION)"
 else
-    echo -e "${RED}✗ NOT FOUND${NC}"
-    echo "  Please install docker-compose: https://docs.docker.com/compose/install/"
-    VALIDATION_FAILED=1
+    echo -e "${YELLOW}⚠${NC} NOT FOUND (optional for deployment fallback)"
+    echo "  Install docker-compose if using Docker deployment: https://docs.docker.com/compose/install/"
+    # Don't fail validation - docker-compose is optional, only needed if Docker deployment is used
 fi
 
 # Check Git
