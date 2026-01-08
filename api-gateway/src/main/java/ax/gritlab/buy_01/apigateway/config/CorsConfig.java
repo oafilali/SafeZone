@@ -19,9 +19,9 @@ public class CorsConfig {
         corsConfig.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
                 "https://localhost:4201",
-                "http://51.21.198.139:4200",
-                "http://51.21.198.139:4201",
-                "http://51.21.198.139"));
+                "http://13.61.234.232:4200",
+                "http://13.61.234.232:4201",
+                "http://13.61.234.232"));
 
         // Allow all HTTP methods
         corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
