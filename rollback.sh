@@ -107,6 +107,14 @@ for service in service-registry api-gateway user-service product-service media-s
     fi
 done
 
+# Restore previous docker-compose.yml
+if [ -f docker-compose.yml.previous ]; then
+    echo "  ✓ Restoring docker-compose.yml from backup..."
+    cp docker-compose.yml.previous docker-compose.yml
+else
+    echo "  ⚠ No docker-compose.yml backup found, using current version"
+fi
+
 # Start containers with restored images
 echo "Starting containers with previous version..."
 docker-compose up -d

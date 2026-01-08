@@ -90,6 +90,16 @@ echo ""
 
 # Transfer docker-compose.yml
 echo -e "${YELLOW}[4/6] Verifying docker-compose.yml...${NC}"
+
+# Backup current docker-compose.yml on server before transferring new one
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" << 'BACKUP_COMPOSE'
+    cd /home/ec2-user/buy-01-app
+    if [ -f docker-compose.yml ]; then
+        cp docker-compose.yml docker-compose.yml.previous
+        echo "✓ Backed up docker-compose.yml"
+    fi
+BACKUP_COMPOSE
+
 echo -e "${GREEN}✓ docker-compose.yml already transferred${NC}"
 echo ""
 
