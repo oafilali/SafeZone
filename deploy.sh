@@ -5,7 +5,7 @@ set -e
 BUILD_NUMBER=${1:-latest}
 
 # AWS Deployment Configuration
-DEPLOY_HOST="ec2-user@16.170.204.134"
+DEPLOY_HOST="ec2-user@13.61.234.232"
 DEPLOY_PATH="/home/ec2-user/buy-01-app"
 
 # Find SSH key - check multiple locations

@@ -8,10 +8,10 @@ A production-ready, full-stack microservices-based e-commerce platform built wit
 **Deployment Date**: January 7, 2026  
 **Status**: All services healthy and running
 
-- **Frontend**: http://16.170.204.134:4200
-- **API Gateway**: http://16.170.204.134:8080
-- **Service Registry**: http://16.170.204.134:8761
-- **Jenkins CI/CD**: http://13.60.233.212:8080
+- **Frontend**: http://13.61.234.232:4200
+- **API Gateway**: http://13.61.234.232:8080
+- **Service Registry**: http://13.61.234.232:8761
+- **Jenkins CI/CD**: http://13.62.141.159:8080
 
 ### Infrastructure Upgrades
 
