@@ -2,7 +2,7 @@
 set -e
 
 # AWS Deployment Configuration
-DEPLOY_HOST="ec2-user@51.21.198.139"
+DEPLOY_HOST="ec2-user@13.61.234.232"
 DEPLOY_PATH="/home/ec2-user/buy-01-app"
 
 # Find SSH key
@@ -15,7 +15,7 @@ else
     exit 1
 fi
 
-AWS_PUBLIC_IP="51.21.198.139"
+AWS_PUBLIC_IP="13.61.234.232"
 
 # Colors for output
 GREEN='\033[0;32m'

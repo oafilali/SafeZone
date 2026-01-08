@@ -18,7 +18,7 @@ else
     exit 1
 fi
 
-AWS_PUBLIC_IP="16.170.204.134"
+AWS_PUBLIC_IP="13.61.234.232"
 
 # Colors for output
 GREEN='\033[0;32m'
