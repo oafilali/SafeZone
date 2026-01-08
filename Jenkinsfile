@@ -10,8 +10,6 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         // Prevent concurrent builds
         disableConcurrentBuilds()
-        // Show timestamps in logs
-        timestamps()
     }
 
     environment {
