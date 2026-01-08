@@ -34,6 +34,21 @@ pipeline {
         JENKINS_SCRIPTS = './jenkins'
         FRONTEND_DIR = 'buy-01-ui'
     }
+    
+    // Helper function to render email templates with variable substitution
+    def renderEmailTemplate(templatePath) {
+        def template = readFile(templatePath)
+        
+        // Substitute Jenkins environment variables
+        template = template.replace('${BUILD_URL}', env.BUILD_URL ?: '')
+        template = template.replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+        template = template.replace('${JOB_NAME}', env.JOB_NAME ?: '')
+        template = template.replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+        template = template.replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+        template = template.replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
+        
+        return template
+    }
 
     stages {
         stage('Validate Environment') {
@@ -244,17 +259,17 @@ pipeline {
             echo '✅ Pipeline completed successfully!'
             echo '=========================================='
             
-            // Email notifications require Gmail app password configured in Jenkins
             script {
                 try {
+                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-success.html")
                     mail(
                         subject: "✅ BUILD SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: readFile("${JENKINS_SCRIPTS}/email-success.html"),
+                        body: emailBody,
                         to: "${TEAM_EMAIL}",
                         mimeType: 'text/html'
                     )
                 } catch (Exception e) {
-                    echo "⚠️ Email notification failed (credentials not configured): ${e.message}"
+                    echo "⚠️ Email notification failed: ${e.message}"
                 }
             }
         }
@@ -263,36 +278,34 @@ pipeline {
             echo '❌ Pipeline failed! Immediate action required'
             echo '=========================================='
             
-            // Email notifications require Gmail app password configured in Jenkins
-            // Script step to skip email if credentials not available
             script {
                 try {
+                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-failure.html")
                     mail(
                         subject: "❌ BUILD FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: readFile("${JENKINS_SCRIPTS}/email-failure.html"),
+                        body: emailBody,
                         to: "${TEAM_EMAIL}",
                         mimeType: 'text/html'
                     )
                 } catch (Exception e) {
-                    echo "⚠️ Email notification failed (credentials not configured): ${e.message}"
-                    echo "To enable: Set up Gmail App Password in Jenkins Manage Credentials"
+                    echo "⚠️ Email notification failed: ${e.message}"
                 }
             }
         }
         unstable {
             echo '⚠️ Pipeline unstable - some tests may have failed'
             
-            // Email notifications require Gmail app password configured in Jenkins
             script {
                 try {
+                    def emailBody = renderEmailTemplate("${JENKINS_SCRIPTS}/email-unstable.html")
                     mail(
                         subject: "⚠️ BUILD UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: readFile("${JENKINS_SCRIPTS}/email-unstable.html"),
+                        body: emailBody,
                         to: "${TEAM_EMAIL}",
                         mimeType: 'text/html'
                     )
                 } catch (Exception e) {
-                    echo "⚠️ Email notification failed (credentials not configured): ${e.message}"
+                    echo "⚠️ Email notification failed: ${e.message}"
                 }
             }
         }
