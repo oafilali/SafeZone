@@ -48,23 +48,11 @@ echo -e "${GREEN}✓ Docker images verified (build-${BUILD_NUMBER})${NC}"
 echo ""
 
 # 2. Prepare AWS deployment directory
-echo -e "${YELLOW}[2/6] Preparing AWS deployment directory and backing up current version...${NC}"
+echo -e "${YELLOW}[2/6] Preparing AWS deployment directory...${NC}"
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH"
 
-# Save current working version as backup before deploying new version
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" << 'BACKUP'
-    # Tag current running images as 'previous' for rollback
-    for service in service-registry api-gateway user-service product-service media-service frontend; do
-        if docker images | grep -q "buy01-pipeline-${service}:latest"; then
-            echo "Backing up ${service}:latest as ${service}:previous"
-            docker tag buy01-pipeline-${service}:latest buy01-pipeline-${service}:previous || true
-        fi
-    done
-    echo "✓ Current version backed up"
-BACKUP
-
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=no docker-compose.yml "$DEPLOY_HOST:$DEPLOY_PATH/"
-echo -e "${GREEN}✓ AWS directory prepared and backup created${NC}"
+echo -e "${GREEN}✓ AWS directory prepared${NC}"
 echo ""
 
 # 3. Transfer images one by one to save disk space
@@ -82,12 +70,18 @@ for service in service-registry api-gateway user-service product-service media-s
     echo "✓ ${service} transferred"
 done
 
-# Tag new images as latest on AWS
+# Tag new images as latest on AWS (and backup old latest as previous)
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" << TAGLATEST
+    echo "Backing up current latest images as previous..."
     for service in service-registry api-gateway user-service product-service media-service frontend; do
+        # First, backup current latest as previous (if it exists)
+        if docker images | grep -q "buy01-pipeline-\${service}:latest"; then
+            docker tag buy01-pipeline-\${service}:latest buy01-pipeline-\${service}:previous || true
+        fi
+        # Then tag new build as latest
         docker tag buy01-pipeline-\${service}:build-${BUILD_NUMBER} buy01-pipeline-\${service}:latest
     done
-    echo "✓ New images tagged as latest"
+    echo "✓ New images tagged as latest, old latest backed up as previous"
 TAGLATEST
 
 echo -e "${GREEN}✓ All images transferred to AWS${NC}"
