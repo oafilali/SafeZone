@@ -72,12 +72,12 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" bash <<'BACKUP_FIRS
     fi
 BACKUP_FIRST
 
-scp -i "$SSH_KEY" -o StrictHostKeyChecking=no docker-compose.yml "$DEPLOY_HOST:$DEPLOY_PATH/"
+scp -i "$SSH_KEY" -o StrictHostKeyChecking=no .pipeline/docker-compose.yml "$DEPLOY_HOST:$DEPLOY_PATH/"
 
 # Transfer .env file with secrets
-if [ -f ".env.production" ]; then
+if [ -f ".pipeline/.env.production" ]; then
     echo "Transferring production environment configuration..."
-    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no .env.production "$DEPLOY_HOST:$DEPLOY_PATH/.env"
+    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no .pipeline/.env.production "$DEPLOY_HOST:$DEPLOY_PATH/.env"
     echo "✓ Environment configuration transferred"
 fi
 
