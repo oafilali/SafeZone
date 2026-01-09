@@ -5,26 +5,26 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/config-loader.sh" ]; then
     source "$SCRIPT_DIR/config-loader.sh"
+else
+    # If config-loader not available, require direct environment variables
+    : "${AWS_DEPLOY_HOST:?AWS_DEPLOY_HOST must be set}"
+    : "${AWS_DEPLOY_USER:?AWS_DEPLOY_USER must be set}"
+    : "${AWS_SSH_KEY:?AWS_SSH_KEY must be set}"
 fi
 
 # Get build number from argument with validation
 BUILD_NUMBER=${1:?'BUILD_NUMBER is required. Usage: deploy.sh <BUILD_NUMBER>'}
 
-# AWS Deployment Configuration (from environment or defaults)
+# AWS Deployment Configuration (from environment - REQUIRED)
 DEPLOY_HOST="${AWS_DEPLOY_USER}@${AWS_DEPLOY_HOST}"
-DEPLOY_PATH="${AWS_DEPLOY_PATH}"
+DEPLOY_PATH="/home/${AWS_DEPLOY_USER}/buy-01-app"
 SSH_KEY="${AWS_SSH_KEY}"
 
-# Legacy fallback for SSH key location
+# Validate SSH key exists
 if [ ! -f "$SSH_KEY" ]; then
-    if [ -f "/var/lib/jenkins/.ssh/aws-deploy-key.pem" ]; then
-        SSH_KEY="/var/lib/jenkins/.ssh/aws-deploy-key.pem"
-    elif [ -f "$HOME/Downloads/lastreal.pem" ]; then
-        SSH_KEY="$HOME/Downloads/lastreal.pem"
-    else
-        echo "Error: SSH key not found!"
-        exit 1
-    fi
+    echo "❌ Error: SSH key not found at $SSH_KEY"
+    echo "Please configure AWS_SSH_KEY or add credential in Jenkins"
+    exit 1
 fi
 
 AWS_PUBLIC_IP="${AWS_DEPLOY_HOST}"

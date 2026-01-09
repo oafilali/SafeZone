@@ -199,6 +199,8 @@ pipeline {
                         echo '🚀 Attempting AWS Deployment...'
                         echo '=========================================='
                         sh '''
+                            echo "DEBUG: AWS_SSH_KEY = ${AWS_SSH_KEY}"
+                            ls -la "${AWS_SSH_KEY}" || echo "SSH key file not found"
                             ${JENKINS_SCRIPTS}/deploy.sh ${BUILD_NUMBER}
                             echo "✅ AWS Deployment successful"
                         '''
@@ -220,18 +222,18 @@ pipeline {
                             echo '=========================================='
                             sh '''
                                 # Check if Docker is available
-                                if ! command -v docker &> /dev/null; then
-                                    echo "❌ Docker is not available for fallback deployment"
+                                if ! command -v docker-compose &> /dev/null; then
+                                    echo "❌ docker-compose is not available for fallback deployment"
                                     exit 1
                                 fi
                                 
-                                echo "✅ Docker is available - deploying containers locally"
+                                echo "✅ docker-compose is available - deploying containers locally"
                                 
                                 # Stop existing containers
-                                docker compose -f docker-compose.yml down 2>/dev/null || true
+                                docker-compose -f docker-compose.yml down 2>/dev/null || true
                                 
                                 # Use docker-compose to deploy
-                                DOCKER_BUILDKIT=1 docker compose -f docker-compose.yml up -d
+                                DOCKER_BUILDKIT=1 docker-compose -f docker-compose.yml up -d
                                 
                                 echo "✅ Docker Deployment successful"
                                 sleep 5
