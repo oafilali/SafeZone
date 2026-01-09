@@ -131,7 +131,8 @@ services:
     image: buy01-pipeline-frontend:latest
     container_name: buy-01-frontend
     ports:
-      - "4200:80" # HTTP
+      - "4200:80"   # HTTP (legacy)
+      - "4201:443"  # HTTPS (recommended)
     depends_on:
       - api-gateway
     networks:
