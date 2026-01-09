@@ -55,7 +55,11 @@ pipeline {
         AWS_SSH_KEY = credentials('aws-ssh-key-file')  // Store SSH key as secret file
         
         // MongoDB Credentials - Use credentials for sensitive data
+        MONGO_ROOT_USERNAME = credentials('mongo-root-username')  // Store in Jenkins Credentials
         MONGO_ROOT_PASSWORD = credentials('mongo-root-password')  // Store in Jenkins Credentials
+        
+        // API Gateway URL
+        API_GATEWAY_URL = "http://13.61.234.232:8080"
         
         // Docker Configuration
         DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
