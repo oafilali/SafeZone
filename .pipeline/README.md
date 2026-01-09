@@ -24,6 +24,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Jenkins server running (LTS 2.528.3+)
 - AWS EC2 deployment server
 - GitHub repository access
@@ -32,20 +33,22 @@
 ### One-Time Setup
 
 1. **Configure Jenkins Credentials** (6 required):
+
    ```
    Jenkins → Manage Jenkins → Credentials → System → Global credentials
    ```
 
-   | ID | Type | Value |
-   |---|---|---|
-   | `team-email` | Secret text | `othmane.afilali@gritlab.ax,jedi.reston@gritlab.ax` |
-   | `aws-deploy-host` | Secret text | `13.61.234.232` |
-   | `aws-deploy-user` | Secret text | `ec2-user` |
-   | `aws-ssh-key-file` | **Secret file** | Upload `lastreal.pem` |
-   | `mongo-root-username` | Secret text | `admin` |
-   | `mongo-root-password` | Secret text | `gritlab25` |
+   | ID                    | Type            | Value                                               |
+   | --------------------- | --------------- | --------------------------------------------------- |
+   | `team-email`          | Secret text     | `othmane.afilali@gritlab.ax,jedi.reston@gritlab.ax` |
+   | `aws-deploy-host`     | Secret text     | `13.61.234.232`                                     |
+   | `aws-deploy-user`     | Secret text     | `ec2-user`                                          |
+   | `aws-ssh-key-file`    | **Secret file** | Upload `lastreal.pem`                               |
+   | `mongo-root-username` | Secret text     | `admin`                                             |
+   | `mongo-root-password` | Secret text     | `gritlab25`                                         |
 
 2. **Create Jenkins Pipeline Job**:
+
    - New Item → Pipeline
    - Pipeline from SCM → Git
    - Repository URL: Your GitHub repo
@@ -59,6 +62,7 @@
    - Events: `Just the push event`
 
 ### Deploy
+
 ```bash
 git add .
 git commit -m "Your changes"
@@ -127,6 +131,7 @@ git push origin main
 ## 🔧 Jenkins Setup
 
 ### Required Plugins
+
 ```
 - Pipeline
 - Git
@@ -156,13 +161,13 @@ TEAM_EMAIL           // notification recipients
 
 Users can customize builds with 5 parameters:
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `DEPLOYMENT_TARGET` | Choice | AWS | AWS / Local Docker / Both |
-| `SKIP_TESTS` | Boolean | false | Skip test execution |
-| `SKIP_FRONTEND_BUILD` | Boolean | false | Backend changes only |
-| `FORCE_REBUILD` | Boolean | false | Ignore cache |
-| `CUSTOM_TAG` | String | (empty) | Custom Docker tag |
+| Parameter             | Type    | Default | Description               |
+| --------------------- | ------- | ------- | ------------------------- |
+| `DEPLOYMENT_TARGET`   | Choice  | AWS     | AWS / Local Docker / Both |
+| `SKIP_TESTS`          | Boolean | false   | Skip test execution       |
+| `SKIP_FRONTEND_BUILD` | Boolean | false   | Backend changes only      |
+| `FORCE_REBUILD`       | Boolean | false   | Ignore cache              |
+| `CUSTOM_TAG`          | String  | (empty) | Custom Docker tag         |
 
 ---
 
@@ -171,6 +176,7 @@ Users can customize builds with 5 parameters:
 ### Credential Management
 
 **✅ All secrets stored in Jenkins Credentials Store**
+
 - Zero hardcoded credentials in code
 - SSH keys with chmod 600 permissions
 - MongoDB credentials never in git
@@ -179,6 +185,7 @@ Users can customize builds with 5 parameters:
 ### Security Best Practices
 
 1. **SSH Key Handling**:
+
    ```groovy
    withCredentials([file(credentialsId: 'aws-ssh-key-file', variable: 'AWS_SSH_KEY_FILE')]) {
        sh '''
@@ -190,6 +197,7 @@ Users can customize builds with 5 parameters:
    ```
 
 2. **Environment Variables**:
+
    - Production: `.env.production` on AWS server (`/home/ec2-user/buy-01-app/.env`)
    - Never committed to git (in .gitignore)
    - Required variables fail deployment if missing
@@ -202,12 +210,12 @@ Users can customize builds with 5 parameters:
 
 ### Audit Compliance: 12/12 (100%) ✅
 
-| Category | Score | Status |
-|----------|-------|--------|
-| **Functional** | 6/6 | ✅ Auto-trigger, tests, deployment, rollback |
-| **Security** | 2/2 | ✅ Credentials secured, no hardcoded secrets |
-| **Code Quality** | 3/3 | ✅ Clean code, test reports, notifications |
-| **Bonus** | 1/1 | ✅ Parameterized builds |
+| Category         | Score | Status                                       |
+| ---------------- | ----- | -------------------------------------------- |
+| **Functional**   | 6/6   | ✅ Auto-trigger, tests, deployment, rollback |
+| **Security**     | 2/2   | ✅ Credentials secured, no hardcoded secrets |
+| **Code Quality** | 3/3   | ✅ Clean code, test reports, notifications   |
+| **Bonus**        | 1/1   | ✅ Parameterized builds                      |
 
 ---
 
@@ -216,10 +224,12 @@ Users can customize builds with 5 parameters:
 ### Deployment Flow
 
 1. **Pre-Deployment Cleanup**:
+
    - Remove old Docker images (keep latest + previous)
    - Free disk space (target: <40% usage)
 
 2. **Build Docker Images**:
+
    ```bash
    # Tagged as: buy01-pipeline-SERVICE:build-N
    - service-registry
@@ -231,6 +241,7 @@ Users can customize builds with 5 parameters:
    ```
 
 3. **Deploy to AWS**:
+
    ```bash
    # SSH to AWS EC2
    # Tag current as 'previous' (backup)
@@ -240,6 +251,7 @@ Users can customize builds with 5 parameters:
    ```
 
 4. **Health Verification**:
+
    ```
    ✅ Eureka: http://13.61.234.232:8761
    ✅ API Gateway: http://13.61.234.232:8080/actuator/health
@@ -309,22 +321,26 @@ cd /path/to/workspace
 ### Rollback Process
 
 1. **Stop current deployment**:
+
    ```bash
    docker-compose down
    ```
 
 2. **Restore previous images**:
+
    ```bash
    docker tag buy01-pipeline-service:previous buy01-pipeline-service:latest
    # Repeat for all 6 services
    ```
 
 3. **Restart services**:
+
    ```bash
    docker-compose up -d
    ```
 
 4. **Verify health** (20-second wait):
+
    - Service Registry: Port 8761
    - API Gateway: Port 8080
    - Frontend: Port 4200
@@ -367,6 +383,7 @@ cd /path/to/workspace
 ### Test Artifacts
 
 Jenkins archives:
+
 - `**/target/surefire-reports/*.xml` (JUnit XML)
 - `buy-01-ui/target/surefire-reports/junit-report.xml` (Karma)
 - Coverage reports (if enabled)
@@ -378,17 +395,20 @@ Jenkins archives:
 ### Email Templates
 
 **Success** (`jenkins/email-success.html`):
+
 - ✅ Green status badge
 - Build number, duration, branch
 - Links to: Test results, artifacts, console
 
 **Failure** (`jenkins/email-failure.html`):
+
 - ❌ Red status badge
 - Error details, failed stage
 - Rollback status
 - Actionable troubleshooting steps
 
 **Unstable** (`jenkins/email-unstable.html`):
+
 - ⚠️ Yellow status badge
 - Test failures (build succeeded)
 - Link to test reports
@@ -396,6 +416,7 @@ Jenkins archives:
 ### Notification Recipients
 
 Configured via Jenkins credential `team-email`:
+
 - othmane.afilali@gritlab.ax
 - jedi.reston@gritlab.ax
 
@@ -406,27 +427,36 @@ Configured via Jenkins credential `team-email`:
 ### Common Issues
 
 #### SSH Key Not Found
+
 ```bash
 ERROR: SSH key not found at ****
 ```
+
 **Fix**: Ensure `aws-ssh-key-file` credential is:
+
 - Type: **Secret file** (not Secret text)
 - Contains valid PEM key
 - Uploaded correctly to Jenkins
 
 #### MongoDB Connection Failed
+
 ```bash
 ERROR: MONGO_ROOT_USERNAME must be set
 ```
+
 **Fix**: Add missing credential in Jenkins:
+
 - `mongo-root-username`: admin
 - `mongo-root-password`: gritlab25
 
 #### Deployment Timeout
+
 ```bash
 WARNING: Service not responding after 150 seconds
 ```
+
 **Fix**: Check AWS server:
+
 ```bash
 ssh ec2-user@13.61.234.232
 docker ps  # Check container status
@@ -434,10 +464,13 @@ docker logs buy-01-mongodb  # Check logs
 ```
 
 #### Docker Out of Space
+
 ```bash
 ERROR: No space left on device
 ```
+
 **Fix**: Manual cleanup on Jenkins server:
+
 ```bash
 docker system prune -af --volumes
 ```
@@ -445,16 +478,19 @@ docker system prune -af --volumes
 ### Debug Commands
 
 **Check Jenkins workspace**:
+
 ```bash
 ls -la /var/lib/jenkins/workspace/buy01-pipeline/
 ```
 
 **Check AWS deployment**:
+
 ```bash
 ssh ec2-user@13.61.234.232 'docker ps && df -h'
 ```
 
 **Check credentials**:
+
 ```bash
 # In Jenkins console
 echo "AWS_DEPLOY_HOST: ${AWS_DEPLOY_HOST}"
@@ -515,6 +551,7 @@ echo "AWS_DEPLOY_USER: ${AWS_DEPLOY_USER}"
 **Jenkins Dashboard**: http://13.62.141.159:8080/job/buy01-pipeline/
 
 **Team Contacts**:
+
 - othmane.afilali@gritlab.ax
 - jedi.reston@gritlab.ax
 
