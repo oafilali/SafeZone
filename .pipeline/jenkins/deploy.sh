@@ -61,7 +61,9 @@ echo ""
 
 # 2. Prepare AWS deployment directory
 echo -e "${YELLOW}[2/6] Preparing AWS deployment directory...${NC}"
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH/certs"
+
+# Ensure certs directory exists and is owned by the deploy user (fixes permission denied for Jenkins SCP)
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" "sudo mkdir -p $DEPLOY_PATH/certs && sudo chown -R $(whoami) $DEPLOY_PATH/certs && sudo chmod 755 $DEPLOY_PATH/certs"
 
 # Backup current docker-compose.yml BEFORE transferring new one
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" bash -s <<BACKUP_FIRST
