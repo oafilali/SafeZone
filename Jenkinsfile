@@ -51,6 +51,7 @@ pipeline {
         
         // AWS Configuration - Use credentials for sensitive data
         AWS_DEPLOY_HOST = credentials('aws-deploy-host')  // Store in Jenkins Credentials
+        AWS_DEPLOY_USER = credentials('aws-deploy-user')  // Store in Jenkins Credentials
         AWS_SSH_KEY = credentials('aws-ssh-key-file')  // Store SSH key as secret file
         
         // MongoDB Credentials - Use credentials for sensitive data
@@ -214,48 +215,26 @@ pipeline {
                         awsDeploymentSuccessful = false
                     }
                     
-                    // Fallback to Docker deployment if AWS fails
+                    // If AWS deployment fails, pipeline fails (no local fallback on Jenkins server)
                     if (!awsDeploymentSuccessful) {
+                        echo '=========================================='
+                        echo '❌ AWS Deployment REQUIRED but failed!'
+                        echo '=========================================='
+                        echo 'Please check:'
+                        echo '  1. All 5 Jenkins credentials are configured'
+                        echo '  2. AWS EC2 server is accessible'
+                        echo '  3. SSH key has correct permissions'
+                        echo '=========================================='
+                        
+                        // Attempt rollback
                         try {
-                            echo '=========================================='
-                            echo '🐳 Falling back to Docker deployment...'
-                            echo '=========================================='
-                            sh '''
-                                # Check if Docker is available
-                                if ! command -v docker-compose &> /dev/null; then
-                                    echo "❌ docker-compose is not available for fallback deployment"
-                                    exit 1
-                                fi
-                                
-                                echo "✅ docker-compose is available - deploying containers locally"
-                                
-                                # Stop existing containers
-                                docker-compose -f docker-compose.yml down 2>/dev/null || true
-                                
-                                # Use docker-compose to deploy
-                                DOCKER_BUILDKIT=1 docker-compose -f docker-compose.yml up -d
-                                
-                                echo "✅ Docker Deployment successful"
-                                sleep 5
-                                echo "Checking container status..."
-                                docker ps --filter "label=com.docker.compose.project=mr-jenk"
-                            '''
-                            echo "✅ Application deployed successfully using Docker!"
-                        } catch (Exception dockerError) {
-                            echo "❌ Both AWS and Docker deployments failed!"
-                            echo "AWS Reason: SSH key or credentials unavailable"
-                            echo "Docker Reason: ${dockerError.message}"
-                            
-                            // Attempt rollback
-                            try {
-                                echo "Rolling back changes..."
-                                sh '${JENKINS_SCRIPTS}/rollback.sh || docker compose down'
-                            } catch (Exception rollbackError) {
-                                echo "⚠️ Rollback also failed: ${rollbackError.message}"
-                            }
-                            
-                            error("Deployment failed on all platforms - AWS and Docker both unavailable")
+                            echo "Rolling back changes..."
+                            sh '${JENKINS_SCRIPTS}/rollback.sh'
+                        } catch (Exception rollbackError) {
+                            echo "⚠️ Rollback also failed: ${rollbackError.message}"
                         }
+                        
+                        error("Deployment failed - AWS credentials or connectivity issue")
                     }
                 }
             }
