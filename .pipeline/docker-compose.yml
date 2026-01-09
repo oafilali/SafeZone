@@ -134,7 +134,7 @@ services:
       - "4200:80"   # HTTP (legacy)
       - "4201:443"  # HTTPS (recommended)
     volumes:
-      - ../buy-01-ui/certs:/etc/nginx/certs:ro  # Mount SSL certificates
+      - ./certs:/etc/nginx/certs:ro  # Mount SSL certificates (Expected in deployment dir)
     depends_on:
       - api-gateway
     networks:
