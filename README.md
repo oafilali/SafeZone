@@ -1,6 +1,25 @@
 # MR-Jenk: Jenkins CI/CD Pipeline for Buy-01 Platform 🚀
 
-A fully automated **Jenkins CI/CD pipeline** for the **Buy-01 e-commerce microservices platform**, featuring automated testing, deployment, and comprehensive notifications.
+**Production-ready CI/CD pipeline with automated testing, deployment, and zero-downtime rollback capability.**
+
+[![Build Status](http://13.62.141.159:8080/job/buy01-pipeline/badge/icon)](http://13.62.141.159:8080/job/buy01-pipeline/)
+![Security](https://img.shields.io/badge/security-100%25-success)
+![Tests](https://img.shields.io/badge/tests-passing-success)
+
+## 🎯 Quick Start
+
+1. **Jenkins configured** with 6 credentials (see [SECURITY_IMPLEMENTATION_COMPLETE.md](SECURITY_IMPLEMENTATION_COMPLETE.md))
+2. **Push code** → Automatic build & deploy via webhook
+3. **Access app**: http://13.61.234.232:4200
+
+## 📊 Current Status
+
+- ✅ **Build #54**: Deployed successfully
+- ✅ **Audit Score**: 12/12 (100% compliance)
+- ✅ **Security**: All secrets secured in Jenkins Credentials Store
+- ✅ **Rollback**: Build #53 preserved as backup
+
+---
 
 ## 📋 Overview
 

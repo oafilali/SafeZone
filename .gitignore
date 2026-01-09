@@ -40,6 +40,13 @@ secrets/
 .secrets
 *.secret
 
+# Temporary files and logs
+deployment.log
+*.log
+test_failed_sample/
+*.tmp
+*.bak
+
 # To load env file manually: `export $(cat .env | xargs)`
 
 # Maven build output

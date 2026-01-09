@@ -204,16 +204,13 @@ pipeline {
                     withCredentials([file(credentialsId: 'aws-ssh-key-file', variable: 'AWS_SSH_KEY_FILE')]) {
                         try {
                             echo '=========================================='
-                            echo '🚀 Attempting AWS Deployment...'
+                            echo '🚀 Deploying to AWS...'
                             echo '=========================================='
                             sh '''
-                                echo "Setting up SSH key..."
                                 export AWS_SSH_KEY="${AWS_SSH_KEY_FILE}"
                                 chmod 600 "${AWS_SSH_KEY}"
-                                ls -la "${AWS_SSH_KEY}"
                                 
                                 ${JENKINS_SCRIPTS}/deploy.sh ${BUILD_NUMBER}
-                                echo "✅ AWS Deployment successful"
                             '''
                             awsDeploymentSuccessful = true
                             
