@@ -180,7 +180,7 @@ check_service() {
     
     echo -n "Checking $service_name..."
     while [ $retry_count -lt $MAX_RETRIES ]; do
-        if curl -f -s "$health_url" > /dev/null 2>&1; then
+        if curl -k -f -s "$health_url" > /dev/null 2>&1; then
             echo " ✓ healthy (after $((retry_count * RETRY_DELAY))s)"
             return 0
         fi
@@ -204,7 +204,7 @@ echo "Waiting for service discovery to stabilize..."
 sleep 10
 
 # Check API Gateway - depends on Service Registry being ready
-if ! check_service "API Gateway" "http://localhost:8080/actuator/health"; then
+if ! check_service "API Gateway" "https://localhost:8443/actuator/health"; then
     HEALTH_CHECK_FAILED=1
 fi
 
@@ -223,7 +223,7 @@ if [ $HEALTH_CHECK_FAILED -eq 1 ]; then
     sleep 30
     
     # Final retry
-    if ! check_service "API Gateway (final check)" "http://localhost:8080/actuator/health"; then
+    if ! check_service "API Gateway (final check)" "https://localhost:8443/actuator/health"; then
         echo "❌ API Gateway still not responding after 120 seconds"
         exit 1
     fi
@@ -339,8 +339,8 @@ CLEANUP
     echo -e "${BLUE}============================================${NC}"
     echo ""
     echo -e "${GREEN}🌐 Application URLs:${NC}"
-    echo -e "   Frontend (HTTP):  http://${AWS_PUBLIC_IP}:4200"
-    echo -e "   API Gateway:      http://${AWS_PUBLIC_IP}:8080"
+    echo -e "   Frontend (HTTPS): https://${AWS_PUBLIC_IP}:4201"
+    echo -e "   API Gateway:      https://${AWS_PUBLIC_IP}:8443"
     echo -e "   Eureka Dashboard: http://${AWS_PUBLIC_IP}:8761"
     echo ""
     echo -e "${GREEN}📦 Deployed version: build-${BUILD_NUMBER}${NC}"

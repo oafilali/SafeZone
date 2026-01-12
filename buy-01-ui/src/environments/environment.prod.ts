@@ -2,7 +2,7 @@
 // This is the PRODUCTION file for Docker builds
 export const environment = {
   production: true,
-  // Use HTTPS for both frontend and API Gateway
+  // Using HTTPS with API Gateway on port 8443
   apiUrl: `https://${window.location.hostname}:8443/api`,
   apiGatewayUrl: `https://${window.location.hostname}:8443`,
   authUrl: `https://${window.location.hostname}:8443/api/auth`,

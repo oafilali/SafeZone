@@ -57,8 +57,8 @@ services:
     image: buy01-pipeline-api-gateway:latest
     container_name: buy-01-api-gateway
     ports:
-      - "8080:8080"   # HTTP (legacy support)
-      - "8443:8443"   # HTTPS
+      - "8080:8080"   # HTTP (always available)
+      - "8443:8443"   # HTTPS (when enabled)
     volumes:
       - ./certs:/app/certs:ro
     environment:
@@ -66,6 +66,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://service-registry:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: api-gateway
+      # SSL Configuration - HTTPS enabled
+      SERVER_PORT: 8443
+      SSL_ENABLED: true
+      SSL_KEY_STORE: file:/app/certs/localhost.p12
+      SSL_KEY_STORE_PASSWORD: changeit
     depends_on:
       - kafka
       - service-registry
