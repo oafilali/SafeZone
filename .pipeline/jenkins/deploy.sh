@@ -91,6 +91,19 @@ if [ -f ".pipeline/.env.production" ]; then
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" "cat $DEPLOY_PATH/.env | sed 's/PASSWORD=.*/PASSWORD=***REDACTED***/'"
 fi
 
+# Convert PEM certificates to PKCS12 format for Spring Boot
+echo "Converting SSL certificates to PKCS12 format for API Gateway..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_HOST" << 'EOF'
+cd /home/ec2-user/buy-01-app/certs
+if [ -f localhost.pem ] && [ -f localhost-key.pem ]; then
+    openssl pkcs12 -export -in localhost.pem -inkey localhost-key.pem \
+        -out localhost.p12 -name localhost -password pass:changeit
+    echo "✓ PKCS12 keystore created"
+else
+    echo "⚠ SSL certificates not found, skipping PKCS12 conversion"
+fi
+EOF
+
 echo -e "${GREEN}✓ AWS directory prepared${NC}"
 echo ""
 
