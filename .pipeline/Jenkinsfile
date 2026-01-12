@@ -100,12 +100,12 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                echo 'Building backend services...'
+                echo 'Building backend services with tests for coverage...'
                 script {
                     if (params.FORCE_REBUILD) {
-                        sh 'mvn clean install -DskipTests -U'  // Force update dependencies
+                        sh 'mvn clean install -U'  // Force update dependencies and run tests
                     } else {
-                        sh 'mvn clean install -DskipTests'
+                        sh 'mvn clean install'  // Run tests to generate coverage data
                     }
                 }
             }
