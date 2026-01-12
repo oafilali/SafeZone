@@ -7,6 +7,7 @@ import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 @Configuration
 public class CorsConfig {
@@ -15,20 +16,14 @@ public class CorsConfig {
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
 
-        // Allow all origins with specific ports (for development and production)
-        corsConfig.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost:*",
-                "https://localhost:*",
-                "http://*:4200",
-                "https://*:4201",
-                "http://*:4200",
-                "https://*:4201"));
+        // Allow all origins (most permissive for testing)
+        corsConfig.setAllowedOriginPatterns(Collections.singletonList("*"));
 
         // Allow all HTTP methods
-        corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
 
         // Allow all headers
-        corsConfig.setAllowedHeaders(Arrays.asList("*"));
+        corsConfig.setAllowedHeaders(Collections.singletonList("*"));
 
         // Allow credentials
         corsConfig.setAllowCredentials(true);
@@ -37,7 +32,7 @@ public class CorsConfig {
         corsConfig.setMaxAge(3600L);
 
         // Expose headers
-        corsConfig.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        corsConfig.setExposedHeaders(Arrays.asList("*"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
