@@ -234,7 +234,7 @@ pipeline {
                 timeout(time: 60, unit: 'MINUTES')
             }
             steps {
-                echo 'Deploying application...'
+                echo 'Deploying application to AWS...'
                 script {
                     // Create production .env file from Jenkins credentials
                     // This ensures secrets are available on AWS even though ignored in Git

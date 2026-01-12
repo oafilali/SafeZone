@@ -10,6 +10,7 @@ docker-compose up -d sonarqube-db sonarqube
 ```
 
 **Wait for SonarQube to start** (~2-3 minutes on first run):
+
 ```bash
 docker logs -f buy01-sonarqube
 ```
@@ -21,6 +22,7 @@ Look for: `SonarQube is operational`
 Open: http://localhost:9000
 
 **Login:**
+
 - Username: `admin`
 - Password: `admin`
 
@@ -54,6 +56,7 @@ mvn sonar:sonar \
 ```
 
 **Expected output:**
+
 ```
 [INFO] ANALYSIS SUCCESSFUL, you can browse http://localhost:9000/dashboard?id=safezone-ecommerce
 [INFO] ------------------------------------------------------------------------
@@ -66,6 +69,7 @@ mvn sonar:sonar \
 Open: http://localhost:9000/dashboard?id=safezone-ecommerce
 
 You'll see:
+
 - **Bugs:** 0 expected (clean project)
 - **Vulnerabilities:** Check for any security issues
 - **Code Smells:** May have some maintainability issues
@@ -111,6 +115,7 @@ git push origin othmane
 ```
 
 This will trigger Jenkins to:
+
 1. ✅ Build backend
 2. ✅ Run tests
 3. 🔍 **Run SonarQube analysis**
@@ -120,18 +125,21 @@ This will trigger Jenkins to:
 ## 8. Check Jenkins Build
 
 Watch the build progress:
+
 - Go to your Jenkins job
 - Look for the new stages:
   - **SonarQube Analysis** - Should show "Running SonarQube Code Analysis..."
   - **Quality Gate** - Should show "Checking SonarQube Quality Gate..."
 
 **If quality gate passes:**
+
 ```
 ✅ Quality Gate passed with status: OK
 → Build continues to deployment
 ```
 
 **If quality gate fails:**
+
 ```
 ❌ Pipeline aborted due to quality gate failure: ERROR
 → Build stops, no deployment
@@ -141,6 +149,7 @@ Watch the build progress:
 ## 9. Common Issues & Fixes
 
 ### SonarQube won't start
+
 ```bash
 docker-compose down
 docker-compose up -d sonarqube-db
@@ -149,17 +158,20 @@ docker-compose up -d sonarqube
 ```
 
 ### Jenkins can't connect to SonarQube
+
 - Check SonarQube is running: `docker ps | grep sonarqube`
 - Verify token in Jenkins credentials
 - Ensure server name is exactly `SonarQube` in Jenkins config
 
 ### Quality gate always fails
+
 1. Open SonarQube dashboard
 2. Check which conditions are failing
 3. Fix the issues (bugs, coverage, etc.)
 4. Push again
 
 ### Analysis takes too long
+
 - This is normal on first run (builds quality profile)
 - Subsequent runs are faster (~5-10 minutes)
 
