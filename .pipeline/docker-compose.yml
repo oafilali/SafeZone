@@ -148,10 +148,6 @@ services:
     networks:
       - buy-01-network
 
-networks:
-  buy-01-network:
-    driver: bridge
-
   sonarqube:
     image: sonarqube:community
     container_name: buy01-sonarqube
@@ -182,6 +178,10 @@ networks:
       - sonarqube_db:/var/lib/postgresql/data
     networks:
       - buy-01-network
+
+networks:
+  buy-01-network:
+    driver: bridge
 
 volumes:
   sonarqube_data:
