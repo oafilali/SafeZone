@@ -30,7 +30,8 @@ pipeline {
     }
     
     triggers {
-        githubPush()  // Trigger on GitHub webhook push
+        // Poll GitHub every 2 minutes for changes (works without webhook/open port)
+        pollSCM('H/2 * * * *')
     }
 
     options {
