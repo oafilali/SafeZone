@@ -35,7 +35,7 @@
 		<url/>
 	</scm>
 	<properties>
-                <sonar.host.url>http://localhost:9000</sonar.host.url>
+                <sonar.host.url>${env.SONARQUBE_URL}</sonar.host.url>
                 <sonar.projectKey>safezone-ecommerce</sonar.projectKey>
                 <sonar.projectName>SafeZone E-Commerce Microservices</sonar.projectName>
                 <sonar.projectVersion>${project.version}</sonar.projectVersion>

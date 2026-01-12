@@ -61,8 +61,8 @@ pipeline {
         // API Gateway URL - REQUIRED for deployment
         API_GATEWAY_URL = credentials('api-gateway-url')  // Store in Jenkins Credentials
         
-        // SonarQube Configuration
-        SONARQUBE_URL = 'http://localhost:9000'
+        // SonarQube Configuration - Uses AWS deployment
+        SONARQUBE_URL = "http://${AWS_DEPLOY_HOST}:9000"
         SONARQUBE_TOKEN = credentials('sonarqube-token')  // Store in Jenkins Credentials
         
         // Docker Configuration
