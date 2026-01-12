@@ -61,6 +61,10 @@ pipeline {
         // API Gateway URL - REQUIRED for deployment
         API_GATEWAY_URL = credentials('api-gateway-url')  // Store in Jenkins Credentials
         
+        // SonarQube Configuration
+        SONARQUBE_URL = 'http://localhost:9000'
+        SONARQUBE_TOKEN = credentials('sonarqube-token')  // Store in Jenkins Credentials
+        
         // Docker Configuration
         DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
         SERVICE_REGISTRY_IMAGE = 'buy01-pipeline-service-registry'
@@ -107,6 +111,51 @@ pipeline {
             }
         }
         
+        
+        stage('SonarQube Analysis') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo '=========================================='
+                echo '🔍 Running SonarQube Code Analysis...'
+                echo '=========================================='
+                script {
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                            mvn sonar:sonar \
+                                -Dsonar.projectKey=safezone-ecommerce \
+                                -Dsonar.host.url=${SONARQUBE_URL} \
+                                -Dsonar.login=${SONARQUBE_TOKEN}
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+            steps {
+                echo '=========================================='
+                echo '🚦 Checking SonarQube Quality Gate...'
+                echo '=========================================='
+                script {
+                    def qg = waitForQualityGate()
+                    if (qg.status != 'OK') {
+                        error "❌ Pipeline aborted due to quality gate failure: ${qg.status}"
+                    }
+                    echo "✅ Quality Gate passed with status: ${qg.status}"
+                }
+            }
+        }
         stage('Parallel Build & Test') {
             options {
                 timeout(time: 45, unit: 'MINUTES')
