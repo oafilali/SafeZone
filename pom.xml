@@ -45,6 +45,7 @@
 		<sonar.host.url>${env.SONARQUBE_URL}</sonar.host.url>
 		<sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
 		<sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<sonar.sources>src/main/java,buy-01-ui/src</sonar.sources>
 	</properties>
 	<!-- Dependencies should be declared in each service module. This root POM is an aggregator so it intentionally does not declare module-specific dependencies. -->
 
