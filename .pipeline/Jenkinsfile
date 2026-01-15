@@ -125,10 +125,18 @@ pipeline {
                 echo '=========================================='
                 script {
                     withSonarQubeEnv('SonarQube') {
-                        sh '''
+                        // 1. Scan the Backend (Java Microservices)
+                        sh 'mvn sonar:sonar -Dsonar.login=${SONARQUBE_TOKEN}'
+                        
+                        // 2. Scan the Frontend (Angular)
+                        // This uses the root folder to find the UI and scans it as a separate project component
+                        sh """
                             mvn sonar:sonar \
+                                -Dsonar.projectKey=safezone-frontend \
+                                -Dsonar.projectName="SafeZone Frontend" \
+                                -Dsonar.sources=buy-01-ui/src \
                                 -Dsonar.login=${SONARQUBE_TOKEN}
-                        '''
+                        """
                     }
                 }
             }
