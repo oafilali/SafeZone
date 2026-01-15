@@ -131,7 +131,7 @@ pipeline {
                         // 2. Scan the Frontend (Angular)
                         // This uses the root folder to find the UI and scans it as a separate project component
                         sh """
-                            mvn sonar:sonar \
+                            mvn sonar:sonar -N \
                                 -Dsonar.projectKey=safezone-frontend \
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
