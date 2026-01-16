@@ -29,7 +29,7 @@ pipeline {
         )
         string(
             name: 'SONARQUBE_URL_OVERRIDE',
-            defaultValue: '',
+            defaultValue: 'https://unfudged-cristie-meristic.ngrok-free.dev',
             description: 'Providing an ngrok URL permits remote Jenkins (AWS) to talk to your local SonarQube'
         )
     }
