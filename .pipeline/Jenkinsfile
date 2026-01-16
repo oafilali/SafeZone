@@ -27,6 +27,11 @@ pipeline {
             defaultValue: '',
             description: 'Custom Docker tag (leave empty for build number)'
         )
+        string(
+            name: 'SONARQUBE_URL_OVERRIDE',
+            defaultValue: '',
+            description: 'Providing an ngrok URL permits remote Jenkins (AWS) to talk to your local SonarQube'
+        )
     }
     
     triggers {
@@ -95,7 +100,18 @@ pipeline {
                         env.FINAL_TARGET = 'Local Docker'
                     }
                     
+                    // Determine which SonarQube URL to use
+                    if (params.SONARQUBE_URL_OVERRIDE != "") {
+                        env.FINAL_SONAR_URL = params.SONARQUBE_URL_OVERRIDE
+                        echo "🔍 Using SonarQube Override (ngrok): ${env.FINAL_SONAR_URL}"
+                    } else if (env.FINAL_TARGET == 'Local Docker') {
+                        env.FINAL_SONAR_URL = env.SONARQUBE_LOCAL_URL
+                    } else {
+                        env.FINAL_SONAR_URL = env.SONARQUBE_AWS_URL
+                    }
+                    
                     echo "🎯 Final Deployment Target: ${env.FINAL_TARGET}"
+                    echo "🎯 Final SonarQube URL: ${env.FINAL_SONAR_URL}"
                 }
             }
         }
@@ -144,13 +160,11 @@ pipeline {
                 echo '🔍 Running SonarQube Code Analysis...'
                 echo '=========================================='
                 script {
-                    // Determine which SonarQube to use
-                    def sonarUrl = (env.FINAL_TARGET == 'Local Docker') ? env.SONARQUBE_LOCAL_URL : env.SONARQUBE_AWS_URL
-                    echo "Using SonarQube at: ${sonarUrl}"
+                    echo "Using SonarQube at: ${env.FINAL_SONAR_URL}"
                     
                     withSonarQubeEnv('SonarQube') {
                         // 1. Scan the Backend (Java Microservices)
-                        sh "mvn sonar:sonar -Dsonar.host.url=${sonarUrl} -Dsonar.login=${SONARQUBE_TOKEN}"
+                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.login=${SONARQUBE_TOKEN}"
                         
                         // 2. Scan the Frontend (Angular)
                         sh """
@@ -158,7 +172,7 @@ pipeline {
                                 -Dsonar.projectKey=safezone-frontend \
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
-                                -Dsonar.host.url=${sonarUrl} \
+                                -Dsonar.host.url=${env.FINAL_SONAR_URL} \
                                 -Dsonar.login=${SONARQUBE_TOKEN}
                         """
                     }
@@ -178,11 +192,10 @@ pipeline {
                 echo '🚦 Checking SonarQube Quality Gate...'
                 echo '=========================================='
                 script {
-                    def sonarUrl = (env.FINAL_TARGET == 'Local Docker') ? env.SONARQUBE_LOCAL_URL : env.SONARQUBE_AWS_URL
                     def qg = waitForQualityGate()
                     if (qg.status != 'OK') {
                         echo "❌ Quality Gate failed with status: ${qg.status}"
-                        echo "📊 View details at: ${sonarUrl}/dashboard?id=safezone-ecommerce"
+                        echo "📊 View details at: ${env.FINAL_SONAR_URL}/dashboard?id=safezone-ecommerce"
                         error "❌ Pipeline aborted due to quality gate failure: ${qg.status}"
                     } else {
                         echo "✅ Quality Gate passed with status: ${qg.status}"
