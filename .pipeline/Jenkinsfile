@@ -182,6 +182,10 @@ pipeline {
                                 -Dsonar.projectKey=safezone-frontend \
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
+                                -Dsonar.tests=buy-01-ui/src \
+                                -Dsonar.test.inclusions=**/*.spec.ts \
+                                -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \
+                                -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \
                                 -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
                                 -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
                         """
@@ -337,11 +341,12 @@ pipeline {
                         fi
                         
                         echo "Using Chrome: $CHROME_BIN"
-                        npm test -- --watch=false --browsers=ChromeHeadless
+                        npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
                         if [ $? -ne 0 ]; then
                             echo "❌ Frontend tests FAILED! Pipeline will STOP here."
                             exit 1
                         fi
+                        echo "✅ Frontend tests completed with code coverage"
                     '''
                 }
             }

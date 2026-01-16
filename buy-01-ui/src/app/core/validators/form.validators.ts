@@ -27,7 +27,7 @@ export function priceValidator(
     const numValue = Number(value);
     
     // Check if valid number
-    if (isNaN(numValue)) {
+    if (Number.isNaN(numValue)) {
       return { invalidPrice: { message: 'Price must be a valid number' } };
     }
     
