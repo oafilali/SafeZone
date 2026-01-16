@@ -131,6 +131,7 @@ pipeline {
                 checkout scm
             }
         }
+
         stage('Build Backend') {
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -203,6 +204,7 @@ pipeline {
                 }
             }
         }
+
         stage('Parallel Build & Test') {
             options {
                 timeout(time: 45, unit: 'MINUTES')
@@ -275,6 +277,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy') {
             options {
                 timeout(time: 60, unit: 'MINUTES')
@@ -328,11 +331,11 @@ pipeline {
                         def awsDeploymentSuccessful = false
                         
                         // Use withCredentials to properly bind the SSH key and SSL certs
-                       withCredentials([
+                        withCredentials([
                         file(credentialsId: 'aws-ssh-key-file', variable: 'AWS_SSH_KEY_FILE'),
                         file(credentialsId: 'frontend-ssl-cert', variable: 'SSL_CERT_FILE'),
                         file(credentialsId: 'frontend-ssl-key', variable: 'SSL_KEY_FILE')
-                       ]) {
+                        ]) {
                             try {
                                 echo '=========================================='
                                 echo '🚀 Deploying to AWS...'
@@ -376,6 +379,7 @@ pipeline {
             }
         }
     }
+}
 
     post {
         always {
