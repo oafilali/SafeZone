@@ -74,7 +74,7 @@ pipeline {
         // SonarQube Configuration
         SONARQUBE_AWS_URL = "http://${AWS_DEPLOY_HOST}:9000"
         SONARQUBE_LOCAL_URL = "http://localhost:9000"
-        SONARQUBE_TOKEN = credentials('ed05539b-95ea-4944-9bb7-ed99d92fe7b5')  // Store in Jenkins Credentials
+        SONARQUBE_TOKEN = credentials('sonarqube-ngrok-token')  // Store in Jenkins Credentials
         
         // Docker Configuration
         DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
