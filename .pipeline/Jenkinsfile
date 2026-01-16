@@ -32,6 +32,11 @@ pipeline {
             defaultValue: 'https://unfudged-cristie-meristic.ngrok-free.dev',
             description: 'Providing an ngrok URL permits remote Jenkins (AWS) to talk to your local SonarQube'
         )
+        string(
+            name: 'SONAR_TOKEN_OVERRIDE',
+            defaultValue: '',
+            description: 'Override SonarQube token (leave empty to use Jenkins credentials)'
+        )
     }
     
     triggers {
@@ -69,7 +74,7 @@ pipeline {
         // SonarQube Configuration
         SONARQUBE_AWS_URL = "http://${AWS_DEPLOY_HOST}:9000"
         SONARQUBE_LOCAL_URL = "http://localhost:9000"
-        SONARQUBE_TOKEN = credentials('sonarqube-token')  // Store in Jenkins Credentials
+        SONARQUBE_TOKEN = credentials('ed05539b-95ea-4944-9bb7-ed99d92fe7b5')  // Store in Jenkins Credentials
         
         // Docker Configuration
         DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
@@ -108,6 +113,14 @@ pipeline {
                         env.FINAL_SONAR_URL = env.SONARQUBE_LOCAL_URL
                     } else {
                         env.FINAL_SONAR_URL = env.SONARQUBE_AWS_URL
+                    }
+                    
+                    // Determine which SonarQube Token to use
+                    if (params.SONAR_TOKEN_OVERRIDE != "") {
+                        env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE
+                        echo "🔑 Using SonarQube Token Override"
+                    } else {
+                        env.FINAL_SONAR_TOKEN = env.SONARQUBE_TOKEN
                     }
                     
                     echo "🎯 Final Deployment Target: ${env.FINAL_TARGET}"
@@ -165,7 +178,7 @@ pipeline {
                     
                     withSonarQubeEnv('SonarQube') {
                         // 1. Scan the Backend (Java Microservices)
-                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.token=${SONARQUBE_TOKEN}"
+                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.token=${env.FINAL_SONAR_TOKEN}"
                         
                         // 2. Scan the Frontend (Angular)
                         sh """
@@ -174,7 +187,7 @@ pipeline {
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
                                 -Dsonar.host.url=${env.FINAL_SONAR_URL} \
-                                -Dsonar.token=${SONARQUBE_TOKEN}
+                                -Dsonar.token=${env.FINAL_SONAR_TOKEN}
                         """
                     }
                 }
