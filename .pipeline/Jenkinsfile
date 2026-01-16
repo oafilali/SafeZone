@@ -157,6 +157,41 @@ pipeline {
             }
         }
         
+        stage('Test Frontend') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo 'Running frontend tests...'
+                dir('buy-01-ui') {
+                    sh '''
+                        set -e
+                        mkdir -p target/surefire-reports
+                        
+                        # Detect Chrome binary location
+                        export CHROME_BIN=$(which chromium-browser || which google-chrome || which chrome || echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" 2>/dev/null || echo "")
+                        
+                        if [ -z "$CHROME_BIN" ] || [ ! -f "$CHROME_BIN" ]; then
+                            echo "❌ Error: Chrome not found! Frontend tests cannot be executed."
+                            echo "To fix: Install Chrome/Chromium on the build agent or set CHROME_BIN environment variable."
+                            exit 1
+                        fi
+                        
+                        echo "Using Chrome: $CHROME_BIN"
+                        npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
+                        if [ $? -ne 0 ]; then
+                            echo "❌ Frontend tests FAILED! Pipeline will STOP here."
+                            exit 1
+                        fi
+                        echo "✅ Frontend tests completed with code coverage"
+                    '''
+                }
+            }
+        }
+        
         
         stage('SonarQube Analysis') {
             when {
@@ -309,41 +344,6 @@ pipeline {
             }
         }
         
-        stage('Test Frontend') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
-            steps {
-                echo 'Running frontend tests...'
-                dir('buy-01-ui') {
-                    sh '''
-                        set -e
-                        mkdir -p target/surefire-reports
-                        
-                        # Detect Chrome binary location
-                        export CHROME_BIN=$(which chromium-browser || which google-chrome || which chrome || echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" 2>/dev/null || echo "")
-                        
-                        if [ -z "$CHROME_BIN" ] || [ ! -f "$CHROME_BIN" ]; then
-                            echo "❌ Error: Chrome not found! Frontend tests cannot be executed."
-                            echo "To fix: Install Chrome/Chromium on the build agent or set CHROME_BIN environment variable."
-                            exit 1
-                        fi
-                        
-                        echo "Using Chrome: $CHROME_BIN"
-                        npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
-                        if [ $? -ne 0 ]; then
-                            echo "❌ Frontend tests FAILED! Pipeline will STOP here."
-                            exit 1
-                        fi
-                        echo "✅ Frontend tests completed with code coverage"
-                    '''
-                }
-            }
-        }
-
         stage('Deploy') {
             options {
                 timeout(time: 60, unit: 'MINUTES')
