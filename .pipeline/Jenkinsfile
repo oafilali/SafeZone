@@ -207,13 +207,72 @@ pipeline {
                 echo '🚦 Checking SonarQube Quality Gate...'
                 echo '=========================================='
                 script {
-                    def qg = waitForQualityGate()
-                    if (qg.status != 'OK') {
-                        echo "❌ Quality Gate failed with status: ${qg.status}"
-                        echo "📊 View details at: ${env.FINAL_SONAR_URL}/dashboard?id=safezone-ecommerce"
-                        error "❌ Pipeline aborted due to quality gate failure: ${qg.status}"
+                    // Check if we are using an override token, which means we must check QG manually 
+                    // because waitForQualityGate() ignores our dynamic token.
+                    if (params.SONAR_TOKEN_OVERRIDE != "") {
+                        echo "🕵️ Using Manual Quality Gate Check (Token Override Detected)..."
+                        
+                        // Wait a moment for report file flush
+                        sleep 5
+                        
+                        if (fileExists('target/sonar/report-task.txt')) {
+                            def props = readProperties file: 'target/sonar/report-task.txt'
+                            def serverUrl = props['serverUrl']
+                            def taskId = props['ceTaskId']
+                            
+                            echo "Checking task: ${taskId} at ${serverUrl}"
+                            
+                            // 1. Poll for Task Completion
+                            timeout(time: 5, unit: 'MINUTES') {
+                                waitUntil {
+                                    script {
+                                        // Use curl with the override token
+                                        def taskStatus = sh(
+                                            script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\"status\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
+                                            returnStdout: true
+                                        ).trim()
+                                        
+                                        echo "Current Task Status: ${taskStatus}"
+                                        return (taskStatus == 'SUCCESS' || taskStatus == 'FAILED' || taskStatus == 'CANCELED')
+                                    }
+                                }
+                            }
+                            
+                            // 2. Poll for Quality Gate Status
+                            def analysisId = sh(
+                                script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\"analysisId\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (analysisId) {
+                                def qgStatus = sh(
+                                    script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\"status\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
+                                    returnStdout: true
+                                ).trim()
+                                
+                                echo "Quality Gate Status: ${qgStatus}"
+                                
+                                if (qgStatus != 'OK') {
+                                    error "❌ Quality Gate FAILED: ${qgStatus}"
+                                } else {
+                                    echo "✅ Quality Gate passed!"
+                                }
+                            } else {
+                                echo "⚠️ Could not retrieve Analysis ID via manual check."
+                            }
+                        } else {
+                            echo "⚠️ Report file not found. Skipping manual Quality Gate check."
+                        }
                     } else {
-                        echo "✅ Quality Gate passed with status: ${qg.status}"
+                        // Standard plugin behavior
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            echo "❌ Quality Gate failed with status: ${qg.status}"
+                            echo "📊 View details at: ${env.FINAL_SONAR_URL}/dashboard?id=safezone-ecommerce"
+                            error "❌ Pipeline aborted due to quality gate failure: ${qg.status}"
+                        } else {
+                            echo "✅ Quality Gate passed with status: ${qg.status}"
+                        }
                     }
                 }
             }
