@@ -97,13 +97,8 @@ pipeline {
                     // Logic to handle automated triggers (which don't allow parameter selection)
                     echo "Checking trigger context for branch: ${env.GIT_BRANCH}"
                     
-                    // Default to params, but override if on specific branches
+                    // Use deployment target from parameters
                     env.FINAL_TARGET = params.DEPLOYMENT_TARGET
-                    
-                    if (env.GIT_BRANCH == 'local' || env.GIT_BRANCH == 'origin/local') {
-                        echo "🔧 Automated push to 'local' branch detected. Overriding target to Local Docker."
-                        env.FINAL_TARGET = 'Local Docker'
-                    }
                     
                     // Determine which SonarQube URL to use
                     if (params.SONARQUBE_URL_OVERRIDE != "") {
