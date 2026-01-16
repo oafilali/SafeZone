@@ -371,7 +371,7 @@ pipeline {
                             export MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
                             export MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
                             export API_GATEWAY_URL=${API_GATEWAY_URL}
-                            cd .pipeline && docker compose -f docker-compose.yml up -d && cd ..
+                            cd .pipeline && docker compose --file docker-compose.yml up -d && cd ..
                         '''
                         echo "✅ Local deployment successful!"
                     }
