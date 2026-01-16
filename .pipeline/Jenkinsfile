@@ -245,8 +245,9 @@ pipeline {
                             ).trim()
                             
                             if (analysisId) {
+                                // Extract only the first status (project status), ignoring condition statuses
                                 def qgStatus = sh(
-                                    script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\"status\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
+                                    script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\"status\":\"[^\"]*\"' | head -n 1 | cut -d: -f2 | tr -d '\"'",
                                     returnStdout: true
                                 ).trim()
                                 
