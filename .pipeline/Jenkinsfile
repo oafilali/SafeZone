@@ -74,7 +74,7 @@ pipeline {
         // SonarQube Configuration
         SONARQUBE_AWS_URL = "http://${AWS_DEPLOY_HOST}:9000"
         SONARQUBE_LOCAL_URL = "http://localhost:9000"
-        SONARQUBE_TOKEN = credentials('sonarqube-ngrok-token')  // Store in Jenkins Credentials
+        // SONARQUBE_TOKEN will be set in SonarQube Analysis stage with withCredentials block
         
         // Docker Configuration
         DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
@@ -115,7 +115,8 @@ pipeline {
                         env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE.trim()
                         echo "🔑 Using SonarQube Token Override"
                     } else {
-                        env.FINAL_SONAR_TOKEN = env.SONARQUBE_TOKEN
+                        // Token will be loaded via withCredentials in SonarQube Analysis stage
+                        echo "🔑 Using SonarQube Token from Jenkins Credentials"
                     }
                     
                     echo "🎯 Final Deployment Target: ${env.FINAL_TARGET}"
@@ -127,7 +128,7 @@ pipeline {
         stage('Validate Environment') {
             steps {
                 echo 'Validating build environment...'
-                sh '${JENKINS_SCRIPTS}/validate-environment.sh'
+                sh "${JENKINS_SCRIPTS}/validate-environment.sh"
             }
         }
         
@@ -171,24 +172,30 @@ pipeline {
                 script {
                     echo "Using SonarQube at: ${env.FINAL_SONAR_URL}"
                     
-                    withSonarQubeEnv('SonarQube') {
-                        // 1. Scan the Backend (Java Microservices)
-                        // Using single quotes around token to avoid accidentally interpreting special characters or trailing text as maven goals
-                        sh "mvn sonar:sonar -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
+                    // Load SonarQube token based on whether we're using override or Jenkins credentials
+                    withCredentials([string(credentialsId: 'sonarqube-ngrok-token', variable: 'SONAR_TOKEN_VAR')]) {
+                        def tokenToUse = params.SONAR_TOKEN_OVERRIDE ?: env.SONAR_TOKEN_VAR
+                        env.FINAL_SONAR_TOKEN = tokenToUse
                         
-                        // 2. Scan the Frontend (Angular)
-                        sh """
-                            mvn sonar:sonar -N \
-                                -Dsonar.projectKey=safezone-frontend \
-                                -Dsonar.projectName="SafeZone Frontend" \
-                                -Dsonar.sources=buy-01-ui/src \
-                                -Dsonar.tests=buy-01-ui/src \
-                                -Dsonar.test.inclusions=**/*.spec.ts \
-                                -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \
-                                -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \
-                                -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
-                                -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
-                        """
+                        withSonarQubeEnv('SonarQube') {
+                            // 1. Scan the Backend (Java Microservices)
+                            // Using single quotes around token to avoid accidentally interpreting special characters or trailing text as maven goals
+                            sh "mvn sonar:sonar -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
+                            
+                            // 2. Scan the Frontend (Angular)
+                            sh """
+                                mvn sonar:sonar -N \
+                                    -Dsonar.projectKey=safezone-frontend \
+                                    -Dsonar.projectName="SafeZone Frontend" \
+                                    -Dsonar.sources=buy-01-ui/src \
+                                    -Dsonar.tests=buy-01-ui/src \
+                                    -Dsonar.test.inclusions=**/*.spec.ts \
+                                    -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \
+                                    -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \
+                                    -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
+                                    -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
+                            """
+                        }
                     }
                 }
             }
