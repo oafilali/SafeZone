@@ -199,7 +199,7 @@ pipeline {
                     } else {
                         // Use Jenkins credential
                         echo "🔑 Using SonarQube Token from Jenkins Credentials"
-                        withCredentials([string(credentialsId: 'sonarqube-ngrok-token', variable: 'SONAR_TOKEN_VAR')]) {
+                        withCredentials([string(credentialsId: 'jedi-sonarqube-ngrok-token', variable: 'SONAR_TOKEN_VAR')]) {
                             env.FINAL_SONAR_TOKEN = env.SONAR_TOKEN_VAR
                             
                             withSonarQubeEnv('SonarQube') {
