@@ -165,7 +165,7 @@ pipeline {
                     
                     withSonarQubeEnv('SonarQube') {
                         // 1. Scan the Backend (Java Microservices)
-                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.login=${SONARQUBE_TOKEN}"
+                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.token=${SONARQUBE_TOKEN}"
                         
                         // 2. Scan the Frontend (Angular)
                         sh """
@@ -174,7 +174,7 @@ pipeline {
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
                                 -Dsonar.host.url=${env.FINAL_SONAR_URL} \
-                                -Dsonar.login=${SONARQUBE_TOKEN}
+                                -Dsonar.token=${SONARQUBE_TOKEN}
                         """
                     }
                 }
