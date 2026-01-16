@@ -107,7 +107,7 @@ pipeline {
                     
                     // Determine which SonarQube URL to use
                     if (params.SONARQUBE_URL_OVERRIDE != "") {
-                        env.FINAL_SONAR_URL = params.SONARQUBE_URL_OVERRIDE
+                        env.FINAL_SONAR_URL = params.SONARQUBE_URL_OVERRIDE.trim()
                         echo "🔍 Using SonarQube Override (ngrok): ${env.FINAL_SONAR_URL}"
                     } else if (env.FINAL_TARGET == 'Local Docker') {
                         env.FINAL_SONAR_URL = env.SONARQUBE_LOCAL_URL
@@ -117,7 +117,7 @@ pipeline {
                     
                     // Determine which SonarQube Token to use
                     if (params.SONAR_TOKEN_OVERRIDE != "") {
-                        env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE
+                        env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE.trim()
                         echo "🔑 Using SonarQube Token Override"
                     } else {
                         env.FINAL_SONAR_TOKEN = env.SONARQUBE_TOKEN
@@ -178,7 +178,8 @@ pipeline {
                     
                     withSonarQubeEnv('SonarQube') {
                         // 1. Scan the Backend (Java Microservices)
-                        sh "mvn sonar:sonar -Dsonar.host.url=${env.FINAL_SONAR_URL} -Dsonar.token=${env.FINAL_SONAR_TOKEN}"
+                        // Using single quotes around token to avoid accidentally interpreting special characters or trailing text as maven goals
+                        sh "mvn sonar:sonar -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
                         
                         // 2. Scan the Frontend (Angular)
                         sh """
@@ -186,8 +187,8 @@ pipeline {
                                 -Dsonar.projectKey=safezone-frontend \
                                 -Dsonar.projectName="SafeZone Frontend" \
                                 -Dsonar.sources=buy-01-ui/src \
-                                -Dsonar.host.url=${env.FINAL_SONAR_URL} \
-                                -Dsonar.token=${env.FINAL_SONAR_TOKEN}
+                                -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
+                                -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
                         """
                     }
                 }
