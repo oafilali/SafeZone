@@ -37,6 +37,11 @@ pipeline {
             defaultValue: '',
             description: 'Override SonarQube token (leave empty to use Jenkins credentials)'
         )
+        booleanParam(
+            name: 'REQUIRE_CODE_REVIEW',
+            defaultValue: true,
+            description: 'Require manual code review approval before production deployment (main branch only)'
+        )
     }
     
     triggers {
@@ -88,6 +93,12 @@ pipeline {
         // Paths
         JENKINS_SCRIPTS = './.pipeline/jenkins'
         FRONTEND_DIR = 'buy-01-ui'
+        
+        // Code Review & PR Configuration
+        GITHUB_TOKEN = credentials('github-token')  // Store in Jenkins Credentials
+        IS_PULL_REQUEST = "${env.CHANGE_ID != null}"
+        TARGET_BRANCH = "${env.CHANGE_TARGET ?: env.GIT_BRANCH ?: 'main'}"
+        SOURCE_BRANCH = "${env.CHANGE_BRANCH ?: env.GIT_BRANCH ?: 'main'}"
     }
 
     stages {
@@ -96,6 +107,15 @@ pipeline {
                 script {
                     // Logic to handle automated triggers (which don't allow parameter selection)
                     echo "Checking trigger context for branch: ${env.GIT_BRANCH}"
+                    
+                    // Detect Pull Request context
+                    if (env.IS_PULL_REQUEST == "true") {
+                        echo "📝 PULL REQUEST DETECTED #${env.CHANGE_ID}"
+                        echo "  Source: ${env.SOURCE_BRANCH}"
+                        echo "  Target: ${env.TARGET_BRANCH}"
+                    } else {
+                        echo "📋 Regular branch build: ${env.GIT_BRANCH}"
+                    }
                     
                     // Use deployment target from parameters
                     env.FINAL_TARGET = params.DEPLOYMENT_TARGET
@@ -121,6 +141,7 @@ pipeline {
                     
                     echo "🎯 Final Deployment Target: ${env.FINAL_TARGET}"
                     echo "🎯 Final SonarQube URL: ${env.FINAL_SONAR_URL}"
+                    echo "🔐 Code Review Required: ${params.REQUIRE_CODE_REVIEW}"
                 }
             }
         }
@@ -207,6 +228,13 @@ pipeline {
                 script {
                     echo "Using SonarQube at: ${env.FINAL_SONAR_URL}"
                     
+                    // Prepare PR-specific parameters if this is a pull request
+                    def prParams = ""
+                    if (env.IS_PULL_REQUEST == "true") {
+                        prParams = "-Dsonar.pullrequest.key=${env.CHANGE_ID} -Dsonar.pullrequest.branch=${env.SOURCE_BRANCH} -Dsonar.pullrequest.base=${env.TARGET_BRANCH}"
+                        echo "📝 Configuring PR analysis for pull request #${env.CHANGE_ID}"
+                    }
+                    
                     // Load SonarQube token based on whether we're using override or Jenkins credentials
                     if (params.SONAR_TOKEN_OVERRIDE?.trim()) {
                         // Use override token if provided
@@ -215,11 +243,11 @@ pipeline {
                         
                         withSonarQubeEnv('SonarQube') {
                             // 1. Scan the Backend (Java Microservices)
-                            sh "mvn sonar:sonar -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
+                            sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
                             
                             // 2. Scan the Frontend (Angular)
                             sh """
-                                mvn sonar:sonar -N \
+                                mvn sonar:sonar -N ${prParams} \
                                     -Dsonar.projectKey=safezone-frontend \
                                     -Dsonar.projectName="SafeZone Frontend" \
                                     -Dsonar.sources=buy-01-ui/src \
@@ -239,11 +267,11 @@ pipeline {
                             
                             withSonarQubeEnv('SonarQube') {
                                 // 1. Scan the Backend (Java Microservices)
-                                sh "mvn sonar:sonar -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
+                                sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
                                 
                                 // 2. Scan the Frontend (Angular)
                                 sh """
-                                    mvn sonar:sonar -N \
+                                    mvn sonar:sonar -N ${prParams} \
                                         -Dsonar.projectKey=safezone-frontend \
                                         -Dsonar.projectName="SafeZone Frontend" \
                                         -Dsonar.sources=buy-01-ui/src \
@@ -344,7 +372,68 @@ pipeline {
             }
         }
         
+        stage('Code Review Approval') {
+            when {
+                allOf {
+                    expression { env.IS_PULL_REQUEST != "true" }  // Only for regular branches
+                    expression { env.TARGET_BRANCH == 'main' || env.TARGET_BRANCH == 'master' }  // Only for main/master
+                    expression { params.REQUIRE_CODE_REVIEW == true }  // Only if enabled
+                    expression { !params.SKIP_TESTS }  // Only if tests weren't skipped
+                }
+            }
+            options {
+                timeout(time: 24, unit: 'HOURS')
+            }
+            steps {
+                echo '=========================================='  
+                echo '👥 Code Review & Approval Required'
+                echo '=========================================='
+                echo "Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                echo "Branch: ${env.GIT_BRANCH}"
+                echo "Commit: ${env.GIT_COMMIT?.take(8)}"
+                echo ""
+                echo "Please review the code quality:"
+                echo "  📊 SonarQube Analysis: ${env.FINAL_SONAR_URL}/projects"
+                echo "  📈 Test Results: ${env.BUILD_URL}testReport"
+                echo "  📦 Build Logs: ${env.BUILD_URL}console"
+                echo ""
+                
+                script {
+                    try {
+                        input(
+                            id: 'CodeReviewApproval',
+                            message: '''===========================================
+👥 CODE REVIEW APPROVAL GATE
+===========================================
+
+Do you approve this code for production deployment?
+
+Please verify:
+✓ Code changes are well-tested
+✓ SonarQube quality gates passed
+✓ No critical security issues
+✓ Code follows team standards
+✓ Documentation is updated
+
+Reviewer Action: APPROVE or REJECT
+==========================================''',
+                            ok: '✅ APPROVE FOR DEPLOYMENT',
+                            submitter: 'safezone-reviewers'
+                        )
+                        echo "✅ Code Review APPROVED"
+                    } catch (err) {
+                        echo "❌ Code Review REJECTED or TIMEOUT"
+                        echo "Reason: ${err.message}"
+                        error("Code review approval required before deployment to production")
+                    }
+                }
+            }
+        }
+        
         stage('Deploy') {
+            when {
+                expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
+            }
             options {
                 timeout(time: 60, unit: 'MINUTES')
             }
