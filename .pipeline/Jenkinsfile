@@ -45,7 +45,11 @@ pipeline {
     }
     
     triggers {
-        githubPush()  // Trigger on GitHub webhook push
+        // Triggers on:
+        // 1. GitHub PR events (created, synchronized, reopened)
+        // 2. GitHub push events to any branch
+        // Pipeline will automatically detect PR vs regular branch push via env variables
+        githubPush()
     }
 
     options {
@@ -97,6 +101,7 @@ pipeline {
         // Code Review & PR Configuration
         GITHUB_TOKEN = credentials('github-token')  // Store in Jenkins Credentials
         IS_PULL_REQUEST = "${env.CHANGE_ID != null}"
+        IS_MAIN_BRANCH = "${env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main'}"
         TARGET_BRANCH = "${env.CHANGE_TARGET ?: env.GIT_BRANCH ?: 'main'}"
         SOURCE_BRANCH = "${env.CHANGE_BRANCH ?: env.GIT_BRANCH ?: 'main'}"
     }
@@ -111,10 +116,11 @@ pipeline {
                     // Detect Pull Request context
                     if (env.IS_PULL_REQUEST == "true") {
                         echo "📝 PULL REQUEST DETECTED #${env.CHANGE_ID}"
-                        echo "  Source: ${env.SOURCE_BRANCH}"
-                        echo "  Target: ${env.TARGET_BRANCH}"
+                        echo "  Source: ${env.SOURCE_BRANCH} → Target: ${env.TARGET_BRANCH}"
+                    } else if (env.IS_MAIN_BRANCH == "true") {
+                        echo "✅ MAIN BRANCH DETECTED (POST-MERGE)"
                     } else {
-                        echo "📋 Regular branch build: ${env.GIT_BRANCH}"
+                        echo "📋 FEATURE BRANCH DETECTED"
                     }
                     
                     // Use deployment target from parameters
@@ -375,24 +381,27 @@ pipeline {
         stage('Code Review Approval') {
             when {
                 allOf {
-                    expression { env.IS_PULL_REQUEST != "true" }  // Only for regular branches
-                    expression { env.TARGET_BRANCH == 'main' || env.TARGET_BRANCH == 'master' }  // Only for main/master
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only after merge to main
                     expression { params.REQUIRE_CODE_REVIEW == true }  // Only if enabled
                     expression { !params.SKIP_TESTS }  // Only if tests weren't skipped
                 }
             }
             options {
-                timeout(time: 24, unit: 'HOURS')
+                timeout(time: 24, unit: 'HOURS')  // 24 hour timeout for approval
             }
             steps {
                 echo '=========================================='  
-                echo '👥 Code Review & Approval Required'
-                echo '=========================================='
+                echo '👥 CODE REVIEW APPROVAL GATE (POST-MERGE)'
+                echo '=========================================='  
+                echo 'GitHub PR approval already enforced before merge.'
+                echo 'This stage provides an additional approval before deployment.'
+                echo '=========================================='  
+                echo ""
                 echo "Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
                 echo "Branch: ${env.GIT_BRANCH}"
                 echo "Commit: ${env.GIT_COMMIT?.take(8)}"
                 echo ""
-                echo "Please review the code quality:"
+                echo "Code Quality Verification:"
                 echo "  📊 SonarQube Analysis: ${env.FINAL_SONAR_URL}/projects"
                 echo "  📈 Test Results: ${env.BUILD_URL}testReport"
                 echo "  📦 Build Logs: ${env.BUILD_URL}console"
@@ -403,28 +412,28 @@ pipeline {
                         input(
                             id: 'CodeReviewApproval',
                             message: '''===========================================
-👥 CODE REVIEW APPROVAL GATE
+👥 APPROVE DEPLOYMENT TO PRODUCTION?
 ===========================================
 
-Do you approve this code for production deployment?
+Build has passed all quality gates:
+✓ Backend tests passed (JUnit)
+✓ Frontend tests passed (Karma)
+✓ SonarQube quality gate PASSED
+✓ Code coverage verified
+✓ GitHub PR approval enforced
 
-Please verify:
-✓ Code changes are well-tested
-✓ SonarQube quality gates passed
-✓ No critical security issues
-✓ Code follows team standards
-✓ Documentation is updated
+Do you approve this code for deployment?
 
-Reviewer Action: APPROVE or REJECT
+Action: APPROVE or REJECT
 ==========================================''',
-                            ok: '✅ APPROVE FOR DEPLOYMENT',
+                            ok: '✅ APPROVE & DEPLOY',
                             submitter: 'safezone-reviewers'
                         )
-                        echo "✅ Code Review APPROVED"
+                        echo "✅ CODE REVIEW APPROVED - Proceeding to deployment"
                     } catch (err) {
-                        echo "❌ Code Review REJECTED or TIMEOUT"
+                        echo "❌ CODE REVIEW REJECTED or TIMEOUT"
                         echo "Reason: ${err.message}"
-                        error("Code review approval required before deployment to production")
+                        error("Code review approval required before deployment to main branch")
                     }
                 }
             }
@@ -432,7 +441,10 @@ Reviewer Action: APPROVE or REJECT
         
         stage('Deploy') {
             when {
-                expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
+                allOf {
+                    expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only deploy from main branch
+                }
             }
             options {
                 timeout(time: 60, unit: 'MINUTES')
