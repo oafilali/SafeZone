@@ -1108,20 +1108,7 @@ curl -X POST http://localhost:8080/api/media/upload \
 - Database per Service
 - JWT Authentication
 
-## 📄 License
-
-This project is developed for educational purposes as part of a university project.
-
 ## 👨‍💻 Contributors
 
 - [@jeeeeedi](https://github.com/jeeeeedi)
 - [@oafilali](https://github.com/oafilali)
-- [@Anastasia](https://github.com/An1Su)
-- [@SaddamHosyn](https://github.com/SaddamHosyn)
-
----
-
-**Built with ❤️ using Spring Boot, Angular, Kafka, and MongoDB**
-
-_For questions or issues, please open an issue on GitHub._
-# Test webhook trigger - Mon Jan 12 15:18:11 EET 2026
