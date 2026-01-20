@@ -2,7 +2,7 @@
 
 **Production-ready CI/CD pipeline with automated testing, deployment, and zero-downtime rollback capability.**
 
-[![Build Status](http://13.62.141.159:8080/job/buy01-pipeline/badge/icon)](http://13.62.141.159:8080/job/buy01-pipeline/)
+[![Build Status](http://13.62.141.159:8080/job/SonarQube-buy01-pipeline/badge/icon)](http://13.62.141.159:8080/job/SonarQube-buy01-pipeline/)
 ![Security](https://img.shields.io/badge/security-100%25-success)
 ![Tests](https://img.shields.io/badge/tests-passing-success)
 
