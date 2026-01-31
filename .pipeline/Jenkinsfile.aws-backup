@@ -198,27 +198,54 @@ pipeline {
                         echo "📝 Configuring PR analysis for pull request #${env.CHANGE_ID}"
                     }
                     
-                    
-                    // Use Jenkins credential for SonarQube token
-                    echo "🔑 Using SonarQube Token from Jenkins Credentials"
-                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    // Load SonarQube token based on whether we're using override or Jenkins credentials
+                    if (params.SONAR_TOKEN_OVERRIDE?.trim()) {
+                        // Use override token if provided
+                        env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE.trim()
+                        echo "🔑 Using SonarQube Token Override"
+                        
                         withSonarQubeEnv('SonarQube') {
                             // 1. Scan the Backend (Java Microservices)
-                            sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.SONARQUBE_URL}' -Dsonar.token='${SONAR_TOKEN}'"
+                            sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
                             
                             // 2. Scan the Frontend (Angular)
                             sh """
-                                mvn sonar:sonar -N ${prParams} \\
-                                    -Dsonar.projectKey=safezone-frontend \\
-                                    -Dsonar.projectName="SafeZone Frontend" \\
-                                    -Dsonar.sources=buy-01-ui/src \\
-                                    -Dsonar.tests=buy-01-ui/src \\
-                                    -Dsonar.test.inclusions=**/*.spec.ts \\
-                                    -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \\
-                                    -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \\
-                                    -Dsonar.host.url='${env.SONARQUBE_URL}' \\
-                                    -Dsonar.token='${SONAR_TOKEN}'
+                                mvn sonar:sonar -N ${prParams} \
+                                    -Dsonar.projectKey=safezone-frontend \
+                                    -Dsonar.projectName="SafeZone Frontend" \
+                                    -Dsonar.sources=buy-01-ui/src \
+                                    -Dsonar.tests=buy-01-ui/src \
+                                    -Dsonar.test.inclusions=**/*.spec.ts \
+                                    -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \
+                                    -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \
+                                    -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
+                                    -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
                             """
+                        }
+                    } else {
+                        // Use Jenkins credential
+                        echo "🔑 Using SonarQube Token from Jenkins Credentials"
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN_VAR')]) {
+                            env.FINAL_SONAR_TOKEN = env.SONAR_TOKEN_VAR
+                            
+                            withSonarQubeEnv('SonarQube') {
+                                // 1. Scan the Backend (Java Microservices)
+                                sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.FINAL_SONAR_URL}' -Dsonar.token='${env.FINAL_SONAR_TOKEN}'"
+                                
+                                // 2. Scan the Frontend (Angular)
+                                sh """
+                                    mvn sonar:sonar -N ${prParams} \
+                                        -Dsonar.projectKey=safezone-frontend \
+                                        -Dsonar.projectName="SafeZone Frontend" \
+                                        -Dsonar.sources=buy-01-ui/src \
+                                        -Dsonar.tests=buy-01-ui/src \
+                                        -Dsonar.test.inclusions=**/*.spec.ts \
+                                        -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \
+                                        -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \
+                                        -Dsonar.host.url='${env.FINAL_SONAR_URL}' \
+                                        -Dsonar.token='${env.FINAL_SONAR_TOKEN}'
+                                """
+                            }
                         }
                     }
                 }
@@ -324,7 +351,7 @@ pipeline {
                 echo "Commit: ${env.GIT_COMMIT?.take(8)}"
                 echo ""
                 echo "Code Quality Verification:"
-                echo "  📊 SonarQube Analysis: ${env.SONARQUBE_URL}/projects"
+                echo "  📊 SonarQube Analysis: ${env.FINAL_SONAR_URL}/projects"
                 echo "  📈 Test Results: ${env.BUILD_URL}testReport"
                 echo "  📦 Build Logs: ${env.BUILD_URL}console"
                 echo ""
@@ -369,34 +396,106 @@ Action: APPROVE or REJECT
                 }
             }
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
             steps {
-                echo '=========================================='
-                echo '🚀 Deploying locally via Docker Compose...'
-                echo '=========================================='
-                sh '''
-                    # Build Docker images
-                    ./.pipeline/jenkins/build-docker-images.sh ${BUILD_NUMBER}
-                    
-                    # Start services locally
-                    export MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
-                    export MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
-                    export API_GATEWAY_URL=${API_GATEWAY_URL}
-                    cd .pipeline && docker compose --file docker-compose.yml up -d && cd ..
-                '''
-                echo "✅ Local deployment successful!"
-                echo ""
-                echo "📋 Services Status:"
-                sh "docker ps --filter 'name=buy-01' --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'"
-                echo ""
-                echo "🌐 Access URLs:"
-                echo "  Frontend: http://localhost:4200"
-                echo "  API Gateway: http://localhost:8080"
-                echo "  Eureka: http://localhost:8761"
-                echo ""
+                script {
+                    // Logic for Local Deployment
+                    if (env.FINAL_TARGET == 'Local Docker' || env.FINAL_TARGET == 'Both') {
+                        echo '=========================================='
+                        echo '🚀 Deploying locally via Docker Compose...'
+                        echo '=========================================='
+                        sh '''
+                            # Build Docker images
+                            ./.pipeline/jenkins/build-docker-images.sh ${BUILD_NUMBER}
+                            
+                            # Start services locally
+                            export MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+                            export MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+                            export API_GATEWAY_URL=${API_GATEWAY_URL}
+                            cd .pipeline && docker compose --file docker-compose.yml up -d && cd ..
+                        '''
+                        echo "✅ Local deployment successful!"
+                    }
+
+                    // Logic for AWS Deployment
+                    if (env.FINAL_TARGET == 'AWS' || env.FINAL_TARGET == 'Both') {
+                        echo 'Deploying application to AWS...'
+                        // Create production .env file from Jenkins credentials
+                        // This ensures secrets are available on AWS even though ignored in Git
+                        sh """
+                            echo "Generating production environment file..."
+                            echo "MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}" > .pipeline/.env.production
+                            echo "MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}" >> .pipeline/.env.production
+                            echo "API_GATEWAY_URL=${API_GATEWAY_URL}" >> .pipeline/.env.production
+                            echo "AWS_DEPLOY_HOST=${AWS_DEPLOY_HOST}" >> .pipeline/.env.production
+                            echo "AWS_DEPLOY_USER=${AWS_DEPLOY_USER}" >> .pipeline/.env.production
+                        """
+                        
+                        sh '''
+                            # Make scripts executable
+                            chmod +x ${JENKINS_SCRIPTS}/*.sh
+                            
+                            # Pre-deployment cleanup
+                            ${JENKINS_SCRIPTS}/pre-deployment-cleanup.sh
+                            
+                            # Build Docker images
+                            ${JENKINS_SCRIPTS}/build-docker-images.sh ${BUILD_NUMBER}
+                        '''
+                        
+                        // Try AWS deployment first
+                        def awsDeploymentSuccessful = false
+                        
+                        // Use withCredentials to properly bind the SSH key and SSL certs
+                        withCredentials([
+                        file(credentialsId: 'aws-ssh-key-file', variable: 'AWS_SSH_KEY_FILE'),
+                        file(credentialsId: 'frontend-ssl-cert', variable: 'SSL_CERT_FILE'),
+                        file(credentialsId: 'frontend-ssl-key', variable: 'SSL_KEY_FILE')
+                        ]) {
+                            try {
+                                echo '=========================================='
+                                echo '🚀 Deploying to AWS...'
+                                echo '🚀 Transferring SSL Certificates...'
+                                echo '=========================================='
+                                sh '''
+                                    export AWS_SSH_KEY="${AWS_SSH_KEY_FILE}"
+                                    chmod 600 "${AWS_SSH_KEY}"
+                                    
+                                    # Ensure remote certs directory exists
+                                    ssh -i "${AWS_SSH_KEY}" -o StrictHostKeyChecking=no "${AWS_DEPLOY_USER}@${AWS_DEPLOY_HOST}" "sudo mkdir -p /home/${AWS_DEPLOY_USER}/buy-01-app/certs && sudo chown -R ${AWS_DEPLOY_USER}:${AWS_DEPLOY_USER} /home/${AWS_DEPLOY_USER}/buy-01-app && sudo chmod -R 755 /home/${AWS_DEPLOY_USER}/buy-01-app"
+                                    # Transfer SSL certificates as expected by Nginx config
+                                    scp -i "${AWS_SSH_KEY}" -o StrictHostKeyChecking=no "${SSL_CERT_FILE}" "${AWS_DEPLOY_USER}@${AWS_DEPLOY_HOST}:/home/${AWS_DEPLOY_USER}/buy-01-app/certs/localhost.pem"
+                                    scp -i "${AWS_SSH_KEY}" -o StrictHostKeyChecking=no "${SSL_KEY_FILE}" "${AWS_DEPLOY_USER}@${AWS_DEPLOY_HOST}:/home/${AWS_DEPLOY_USER}/buy-01-app/certs/localhost-key.pem"
+                                    
+                                    ${JENKINS_SCRIPTS}/deploy.sh ${BUILD_NUMBER}
+                                '''
+                                awsDeploymentSuccessful = true
+                                
+                                // Post-deployment cleanup on success
+                                sh '${JENKINS_SCRIPTS}/post-deployment-cleanup.sh'
+                            } catch (Exception e) {
+                                echo "⚠️ AWS Deployment failed: ${e.message}"
+                            echo "Reason: Typically SSH key not found or AWS credentials unavailable"
+                            awsDeploymentSuccessful = false
+                            
+                            // Attempt rollback INSIDE withCredentials so it has access to the SSH key
+                            try {
+                                echo "Rolling back changes..."
+                                sh '''
+                                    export AWS_SSH_KEY="${AWS_SSH_KEY_FILE}"
+                                    chmod 600 "${AWS_SSH_KEY}"
+                                    ${JENKINS_SCRIPTS}/rollback.sh
+                                '''
+                            } catch (Exception rollbackError) {
+                                echo "⚠️ Rollback also failed: ${rollbackError.message}"
+                            }
+                        }
+                    }
+                }
             }
-        }    }
+        }
+    }
+}
 
     post {
         always {
@@ -504,14 +603,14 @@ Action: APPROVE or REJECT
 }
 
 // Helper function to poll SonarQube Quality Gate with token authentication
-void pollQualityGate(String serverUrl, String taskId, String token) {
+void pollQualityGate(String serverUrl, String taskId) {
     // 1. Poll for Task Completion
     timeout(time: 5, unit: 'MINUTES') {
         waitUntil {
             script {
                 // Use curl with the token
                 def taskStatus = sh(
-                    script: "curl -s -u '${token}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\\\"status\\\":\\\"[^\\\"]*\\\"' | cut -d: -f2 | tr -d '\\\"'",
+                    script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\"status\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
                     returnStdout: true
                 ).trim()
                 
@@ -523,14 +622,14 @@ void pollQualityGate(String serverUrl, String taskId, String token) {
     
     // 2. Poll for Quality Gate Status
     def analysisId = sh(
-        script: "curl -s -u '${token}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\\\"analysisId\\\":\\\"[^\\\"]*\\\"' | cut -d: -f2 | tr -d '\\\"'",
+        script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\"analysisId\":\"[^\"]*\"' | cut -d: -f2 | tr -d '\"'",
         returnStdout: true
     ).trim()
     
     if (analysisId) {
         // Extract only the first status (project status), ignoring condition statuses
         def qgStatus = sh(
-            script: "curl -s -u '${token}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\\\"status\\\":\\\"[^\\\"]*\\\"' | head -n 1 | cut -d: -f2 | tr -d '\\\"'",
+            script: "curl -s -u '${env.FINAL_SONAR_TOKEN}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\"status\":\"[^\"]*\"' | head -n 1 | cut -d: -f2 | tr -d '\"'",
             returnStdout: true
         ).trim()
         
