@@ -268,7 +268,7 @@ pipeline {
                     } else {
                         // Use Jenkins credential
                         echo "🔑 Using SonarQube Token from Jenkins Credentials"
-                        withCredentials([string(credentialsId: 'jedi-sonarqube-ngrok-token', variable: 'SONAR_TOKEN_VAR')]) {
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN_VAR')]) {
                             env.FINAL_SONAR_TOKEN = env.SONAR_TOKEN_VAR
                             
                             withSonarQubeEnv('SonarQube') {
@@ -324,7 +324,7 @@ pipeline {
                         if (params.SONAR_TOKEN_OVERRIDE?.trim()) {
                             env.FINAL_SONAR_TOKEN = params.SONAR_TOKEN_OVERRIDE.trim()
                         } else {
-                            withCredentials([string(credentialsId: 'jedi-sonarqube-ngrok-token', variable: 'SONAR_TOKEN_VAR')]) {
+                            withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN_VAR')]) {
                                 env.FINAL_SONAR_TOKEN = env.SONAR_TOKEN_VAR
                                 pollQualityGate(serverUrl, taskId)
                             }
