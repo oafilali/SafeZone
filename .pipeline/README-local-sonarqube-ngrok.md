@@ -6,7 +6,7 @@ Before triggering the Jenkins pipeline, you must have a local SonarQube instance
 
 - SonarQube is running locally (via Docker Compose)
 - ngrok is installed and exposes your local SonarQube to the internet
-- You get the public ngrok URL to use in the pipeline.
+- You get the public ngrok URL to use in the pipeline
 
 ## How to use
 
