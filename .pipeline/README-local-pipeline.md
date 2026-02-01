@@ -79,7 +79,7 @@ GitHub Webhook → ngrok → Local Jenkins (port 8080)
 
 ```bash
 # 1. Navigate to the pipeline directory
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 
 # 2. Make scripts executable
 chmod +x *.sh
@@ -101,7 +101,7 @@ chmod +x *.sh
 ### Step 1: Run Master Setup Script
 
 ```bash
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 ./setup-all-local.sh
 ```
 
@@ -276,7 +276,7 @@ Or visit the ngrok dashboard: http://localhost:4040
 
 1. Create a test branch:
    ```bash
-   cd /Users/jedi.reston/SafeZone
+   cd /Users/othmane.afilali/Desktop/antigravity/SafeZone
    git checkout -b test-pipeline
    ```
 
@@ -347,7 +347,7 @@ docker ps -a | grep sonarqube
 docker logs buy01-sonarqube
 
 # Restart SonarQube
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 docker-compose restart sonarqube
 
 # If database issues, restart database too
@@ -439,7 +439,7 @@ brew services restart jenkins-lts
 ### Updating SonarQube
 
 ```bash
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 
 # Stop current version
 docker-compose stop sonarqube
@@ -482,7 +482,7 @@ brew services stop jenkins-lts
 pkill -f ngrok
 
 # Stop SonarQube and application
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 docker-compose stop
 ```
 
@@ -499,7 +499,7 @@ brew services start jenkins-lts
 ./setup-jenkins-webhooks.sh
 
 # Start application (after successful build)
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 docker-compose up -d
 ```
 

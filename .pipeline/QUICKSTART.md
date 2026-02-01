@@ -3,7 +3,7 @@
 ## One-Command Setup
 
 ```bash
-cd /Users/jedi.reston/SafeZone/.pipeline && ./setup-all-local.sh
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline && ./setup-all-local.sh
 ```
 
 This installs everything: Jenkins, SonarQube, ngrok, and all dependencies.
@@ -52,7 +52,7 @@ Follow instructions in [JENKINSFILE-UPDATES.md](JENKINSFILE-UPDATES.md)
 
 ### 6. Test Pipeline (2 min)
 ```bash
-cd /Users/jedi.reston/SafeZone
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone
 git checkout -b test-pipeline
 echo "# Test" >> README.md
 git add README.md

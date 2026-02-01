@@ -32,7 +32,7 @@ The Jenkinsfile auto-update is complex due to Groovy syntax. I've created **two 
 
 ### Option 1: Manual Updates (RECOMMENDED - 10 minutes)
 Follow the **simple step-by-step guide** in:
-📄 [`JENKINSFILE-MANUAL-UPDATES.md`](file:///Users/jedi.reston/SafeZone/.pipeline/JENKINSFILE-MANUAL-UPDATES.md)
+📄 [`JENKINSFILE-MANUAL-UPDATES.md`](file:///Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline/JENKINSFILE-MANUAL-UPDATES.md)
 
 This has 4 clear find/replace changes with exact code snippets.
 
@@ -96,7 +96,7 @@ Once the Jenkinsfile is updated:
 
 ## 🎯 Recommended Next Action
 
-1. Open [`JENKINSFILE-MANUAL-UPDATES.md`](file:///Users/jedi.reston/SafeZone/.pipeline/JENKINSFILE-MANUAL-UPDATES.md)
+1. Open [`JENKINSFILE-MANUAL-UPDATES.md`](file:///Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline/JENKINSFILE-MANUAL-UPDATES.md)
 2. Make the 4 changes (10 minutes)
 3. Then run `./setup-all-local.sh`
 

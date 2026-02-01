@@ -45,10 +45,10 @@ pipeline {
     }
 
     environment {
-        // Local Tool Paths (Homebrew on macOS)
-        MAVEN_HOME = '/opt/homebrew/opt/maven/libexec'
-        NODEJS_HOME = '/opt/homebrew/bin'
-        JAVA_HOME = '/opt/homebrew/opt/openjdk@17'
+        // Tool Paths inside Jenkins Docker container
+        MAVEN_HOME = '/usr/share/maven'
+        NODEJS_HOME = '/usr/bin'
+        JAVA_HOME = '/opt/java/openjdk'
         PATH = "${JAVA_HOME}/bin:${MAVEN_HOME}/bin:${NODEJS_HOME}:${env.PATH}"
         
         // Email Configuration - Use credentials for sensitive data
@@ -61,8 +61,8 @@ pipeline {
         // API Gateway URL - REQUIRED for deployment
         API_GATEWAY_URL = credentials('api-gateway-url')  // Store in Jenkins Credentials
         
-        // SonarQube Configuration (Local)
-        SONARQUBE_URL = "http://localhost:9000"
+        // SonarQube Configuration (Local - use host.docker.internal for Docker-to-host communication)
+        SONARQUBE_URL = "http://host.docker.internal:9000"
         // SONARQUBE_TOKEN will be set in SonarQube Analysis stage with withCredentials block
         
         // Docker Configuration

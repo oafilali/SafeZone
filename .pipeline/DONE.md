@@ -64,7 +64,7 @@ All scripts are executable and ready to run.
 
 ### Step 1: Run Master Setup (20-30 min automated)
 ```bash
-cd /Users/jedi.reston/SafeZone/.pipeline
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline
 ./setup-all-local.sh
 ```
 
@@ -100,10 +100,10 @@ git push origin test-pipeline
 
 ## 📚 Quick Links
 
-- **Start Here**: [QUICKSTART.md](file:///Users/jedi.reston/SafeZone/.pipeline/QUICKSTART.md)
-- **Complete Guide**: [README-local-pipeline.md](file:///Users/jedi.reston/SafeZone/.pipeline/README-local-pipeline.md)
+- **Start Here**: [QUICKSTART.md](file:///Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline/QUICKSTART.md)
+- **Complete Guide**: [README-local-pipeline.md](file:///Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline/README-local-pipeline.md)
 - **What Changed**: [walkthrough.md](file:///Users/jedi.reston/.gemini/antigravity/brain/04a7deb1-5e49-4f67-9169-33064b6c1ed4/walkthrough.md)
-- **Updated Jenkinsfile**: [Jenkinsfile](file:///Users/jedi.reston/SafeZone/.pipeline/Jenkinsfile)
+- **Updated Jenkinsfile**: [Jenkinsfile](file:///Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline/Jenkinsfile)
 
 ---
 
@@ -127,7 +127,7 @@ I verified all changes:
 Everything is done and ready. Just run the setup script to get started:
 
 ```bash
-cd /Users/jedi.reston/SafeZone/.pipeline && ./setup-all-local.sh
+cd /Users/othmane.afilali/Desktop/antigravity/SafeZone/.pipeline && ./setup-all-local.sh
 ```
 
 That one command will install and configure everything. The script will guide you through each step with clear instructions.
