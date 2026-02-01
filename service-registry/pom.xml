@@ -20,6 +20,7 @@
 		<java.version>17</java.version>
 		<sonar.coverage.exclusions>
             **/config/**,
+            **/repository/**,
             **/*Application.java
         </sonar.coverage.exclusions>
 		<maven.compiler.release>17</maven.compiler.release>

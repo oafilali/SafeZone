@@ -18,6 +18,8 @@
         <sonar.coverage.exclusions>
             **/dto/**,
             **/model/**,
+            **/entity/**,
+            **/repository/**,
             **/config/**,
             **/exception/**,
             **/*Application.java

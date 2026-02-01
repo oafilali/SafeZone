@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -65,6 +66,9 @@ public class ProductServiceTest {
         testProductRequest.setDescription("Updated description");
         testProductRequest.setPrice(149.99);
         testProductRequest.setQuantity(20);
+
+        ReflectionTestUtils.setField(productService, "mediaServiceUrl", "http://media-service");
+        ReflectionTestUtils.setField(productService, "mediaPublicUrl", "https://localhost:8443");
     }
 
     @Test
@@ -195,5 +199,23 @@ public class ProductServiceTest {
         // Assert
         verify(productRepository, times(1)).findByUserId("user123");
         verify(productRepository, times(1)).delete(testProduct);
+    }
+
+    @Test
+    @DisplayName("Should associate media with product successfully")
+    void testAssociateMedia() {
+        // Arrange
+        testProduct.setMediaIds(new ArrayList<>());
+        when(productRepository.findById("prod123")).thenReturn(Optional.of(testProduct));
+        when(productRepository.save(any(Product.class))).thenReturn(testProduct);
+
+        // Act
+        ProductResponse response = productService.associateMedia("prod123", "media123", "user123");
+
+        // Assert
+        assertNotNull(response);
+        verify(productRepository, times(1)).findById("prod123");
+        verify(productRepository, times(1)).save(any(Product.class));
+        verify(restTemplate, times(1)).put(eq("http://media-service/images/media123/product/prod123?userId=user123"), any());
     }
 }
