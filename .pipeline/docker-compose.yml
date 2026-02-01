@@ -189,3 +189,4 @@ volumes:
   sonarqube_extensions:
   sonarqube_db:
   buy01-certs:
+    external: true
