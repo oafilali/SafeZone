@@ -54,14 +54,14 @@ public class AuthenticationServiceTest {
                 .name("John Doe")
                 .email("john@example.com")
                 .password("encodedPassword")
-                .role(Role.USER)
+                .role(Role.CLIENT)
                 .build();
 
         registerRequest = new RegisterRequest();
         registerRequest.setName("John Doe");
         registerRequest.setEmail("john@example.com");
         registerRequest.setPassword("password123");
-        registerRequest.setRole(Role.USER);
+        registerRequest.setRole(Role.CLIENT);
 
         authRequest = new AuthenticationRequest();
         authRequest.setEmail("john@example.com");
