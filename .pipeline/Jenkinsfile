@@ -427,7 +427,7 @@ Action: APPROVE or REJECT
                                  buy-01-mongodb buy-01-kafka buy-01-zookeeper || true
                     
                     # Use "docker compose" (v2) which is standard in modern Docker
-                    docker compose -f docker-compose.yml down --remove-orphans || true
+                    # node: skipping 'down' to preserve SonarQube container
                     docker compose -f docker-compose.yml up -d
                     cd ..
                 '''
