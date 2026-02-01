@@ -404,12 +404,19 @@ Action: APPROVE or REJECT
                         echo "✅ Certificates already exist."
                     fi
 
-                    # Populate the Docker volume
+                    # Populate the Docker volume using docker cp to avoid bind mount issues
                     echo "📦 Populating certificate volume..."
                     docker volume create buy01-certs || true
-                    # Use a helper container to copy certs into the volume
-                    # We mount the current directory (workspace) to /source and the volume to /dest
-                    docker run --rm -v "$(pwd)/certs:/source" -v buy01-certs:/dest alpine cp -r /source/. /dest/
+                    
+                    # Create a dummy container to copy files into the volume
+                    docker create --name temp-cert-loader -v buy01-certs:/dest alpine
+                    
+                    # Copy certs from Jenkins workspace to the volume via the container
+                    docker cp certs/. temp-cert-loader:/dest/
+                    
+                    # Clean up
+                    docker rm temp-cert-loader
+                    
                     echo "✅ Certificates copied to Docker volume."
                     
                     # Force cleanup of ANY existing containers with conflicting names
