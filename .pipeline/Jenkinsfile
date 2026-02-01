@@ -165,7 +165,7 @@ pipeline {
                         fi
                         
                         echo "Using Chrome: $CHROME_BIN"
-                        npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
+                        npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
                         if [ $? -ne 0 ]; then
                             echo "❌ Frontend tests FAILED! Pipeline will STOP here."
                             exit 1
