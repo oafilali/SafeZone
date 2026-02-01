@@ -365,7 +365,7 @@ Action: APPROVE or REJECT
             when {
                 allOf {
                     expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
-                    expression { env.IS_MAIN_BRANCH == "true" }  // Only deploy from main branch
+                    // expression { env.IS_MAIN_BRANCH == "true" }  // DEPLOY ON ALL BRANCHES FOR TESTING
                 }
             }
             options {
@@ -383,7 +383,16 @@ Action: APPROVE or REJECT
                     export MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
                     export MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
                     export API_GATEWAY_URL=${API_GATEWAY_URL}
-                    cd .pipeline && docker compose --file docker-compose.yml up -d && cd ..
+                    
+                    echo "Checking docker compose availability..."
+                    docker compose version || docker-compose version
+                    
+                    echo "Starting services using docker-compose.yml..."
+                    cd .pipeline 
+                    # Use "docker compose" (v2) which is standard in modern Docker
+                    docker compose -f docker-compose.yml down --remove-orphans || true
+                    docker compose -f docker-compose.yml up -d
+                    cd ..
                 '''
                 echo "✅ Local deployment successful!"
                 echo ""
