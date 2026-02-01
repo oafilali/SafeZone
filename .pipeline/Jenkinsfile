@@ -389,6 +389,14 @@ Action: APPROVE or REJECT
                     
                     echo "Starting services using docker-compose.yml..."
                     cd .pipeline 
+                    
+                    # Force cleanup of ANY existing containers with conflicting names
+                    # This handles edge cases where docker compose down misses orphaned containers
+                    echo "🧹 Force cleaning conflicting containers..."
+                    docker rm -f buy-01-service-registry buy-01-api-gateway buy-01-user-service \
+                                 buy-01-product-service buy-01-media-service buy-01-frontend \
+                                 buy-01-mongodb buy-01-kafka buy-01-zookeeper || true
+                    
                     # Use "docker compose" (v2) which is standard in modern Docker
                     docker compose -f docker-compose.yml down --remove-orphans || true
                     docker compose -f docker-compose.yml up -d
