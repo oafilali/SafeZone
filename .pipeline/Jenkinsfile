@@ -390,6 +390,20 @@ Action: APPROVE or REJECT
                     echo "Starting services using docker-compose.yml..."
                     cd .pipeline 
                     
+                    # Generate SSL certificates if missing
+                    echo "🔐 Checking SSL certificates..."
+                    mkdir -p certs
+                    if [ ! -f certs/localhost.pem ]; then
+                        echo "⚠️ Certificates missing. Generating self-signed certificates..."
+                        openssl req -x509 -newkey rsa:4096 -keyout certs/localhost-key.pem -out certs/localhost.pem -days 365 -nodes -subj "/CN=localhost"
+                        openssl pkcs12 -export -in certs/localhost.pem -inkey certs/localhost-key.pem -out certs/localhost.p12 -name localhost -password pass:changeit
+                        chmod 644 certs/localhost.pem certs/localhost.p12
+                        chmod 600 certs/localhost-key.pem
+                        echo "✅ Certificates generated."
+                    else
+                        echo "✅ Certificates already exist."
+                    fi
+                    
                     # Force cleanup of ANY existing containers with conflicting names
                     # This handles edge cases where docker compose down misses orphaned containers
                     echo "🧹 Force cleaning conflicting containers..."
