@@ -403,6 +403,14 @@ Action: APPROVE or REJECT
                     else
                         echo "✅ Certificates already exist."
                     fi
+
+                    # Populate the Docker volume
+                    echo "📦 Populating certificate volume..."
+                    docker volume create buy01-certs || true
+                    # Use a helper container to copy certs into the volume
+                    # We mount the current directory (workspace) to /source and the volume to /dest
+                    docker run --rm -v "$(pwd)/certs:/source" -v buy01-certs:/dest alpine cp -r /source/. /dest/
+                    echo "✅ Certificates copied to Docker volume."
                     
                     # Force cleanup of ANY existing containers with conflicting names
                     # This handles edge cases where docker compose down misses orphaned containers

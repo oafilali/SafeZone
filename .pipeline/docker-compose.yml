@@ -60,7 +60,7 @@ services:
       - "8080:8080"   # HTTP (always available)
       - "8443:8443"   # HTTPS (when enabled)
     volumes:
-      - ./certs:/app/certs:ro
+      - buy01-certs:/app/certs:ro
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -142,7 +142,7 @@ services:
       - "4200:80"   # HTTP
       - "4201:443"  # HTTPS
     volumes:
-      - ./certs:/etc/nginx/certs:ro
+      - buy01-certs:/etc/nginx/certs:ro
     depends_on:
       - api-gateway
     networks:
@@ -188,3 +188,4 @@ volumes:
   sonarqube_logs:
   sonarqube_extensions:
   sonarqube_db:
+  buy01-certs:
