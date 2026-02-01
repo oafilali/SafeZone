@@ -4,7 +4,7 @@
 
 All work has been completed. The SafeZone CI/CD pipeline is now fully configured for local-only deployment.
 
----
+----
 
 ## What I Did For You
 
