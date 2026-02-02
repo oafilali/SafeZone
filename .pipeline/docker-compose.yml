@@ -179,6 +179,15 @@ services:
     networks:
       - buy-01-network
 
+  mailhog:
+    image: mailhog/mailhog
+    container_name: buy01-mailhog
+    ports:
+      - "1025:1025" # SMTP server
+      - "8025:8025" # Web UI
+    networks:
+      - buy-01-network
+
 networks:
   buy-01-network:
     driver: bridge
