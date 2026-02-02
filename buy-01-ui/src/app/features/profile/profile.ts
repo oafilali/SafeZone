@@ -271,10 +271,7 @@ export class Profile implements OnInit {
    */
   getErrorMessage(controlName: string): string {
     // Check which form contains the control
-    let control = this.profileForm.get(controlName);
-    if (!control) {
-      control = this.passwordForm.get(controlName);
-    }
+    const control = this.profileForm.get(controlName) || this.passwordForm.get(controlName);
 
     if (!control) return '';
 

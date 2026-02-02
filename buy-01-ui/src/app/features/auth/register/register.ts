@@ -155,7 +155,7 @@ export class Register {
   getErrorMessage(controlName: string): string {
     const control = this.registerForm.get(controlName);
     
-    if (!control || !control.errors) {
+    if (!control?.errors) {
       return '';
     }
     

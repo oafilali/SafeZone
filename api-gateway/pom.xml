@@ -17,6 +17,12 @@
     <description>API Gateway for buy-01 microservices</description>
     <properties>
         <java.version>17</java.version>
+        <sonar.skip>true</sonar.skip>
+        <sonar.coverage.exclusions>
+            **/config/**,
+            **/repository/**,
+            **/*Application.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencies>

@@ -81,22 +81,23 @@ export class GlobalErrorHandler implements ErrorHandler {
    * Handle client-side errors
    */
   private handleClientError(error: Error): void {
-    let message = 'An unexpected error occurred';
-    
-    // Check for specific error types
-    if (error.message.includes('Network')) {
-      message = 'Network error. Please check your connection.';
-    } else if (error.message.includes('timeout')) {
-      message = 'Request timed out. Please try again.';
-    } else if (error.message.includes('quota')) {
-      message = 'Storage quota exceeded. Please clear some space.';
-    } else if (error.message.includes('permission')) {
-      message = 'Permission denied. Please check your settings.';
-    } else {
-      // Generic error
-      message = 'Something went wrong. Please try again.';
-    }
-    
+    const message = this.getClientErrorMessage(error.message);
     this.notificationService.error(message);
+  }
+  
+  /**
+   * Determine the appropriate error message based on error type
+   */
+  private getClientErrorMessage(errorMessage: string): string {
+    if (errorMessage.includes('Network')) {
+      return 'Network error. Please check your connection.';
+    } else if (errorMessage.includes('timeout')) {
+      return 'Request timed out. Please try again.';
+    } else if (errorMessage.includes('quota')) {
+      return 'Storage quota exceeded. Please clear some space.';
+    } else if (errorMessage.includes('permission')) {
+      return 'Permission denied. Please check your settings.';
+    }
+    return 'Something went wrong. Please try again.';
   }
 }

@@ -2,7 +2,7 @@
 
 **Production-ready CI/CD pipeline with automated testing, deployment, and zero-downtime rollback capability.**
 
-[![Build Status](http://13.62.141.159:8080/job/buy01-pipeline/badge/icon)](http://13.62.141.159:8080/job/buy01-pipeline/)
+[![Build Status](http://13.62.141.159:8080/job/SonarQube-buy01-pipeline/badge/icon)](http://13.62.141.159:8080/job/SonarQube-buy01-pipeline/)
 ![Security](https://img.shields.io/badge/security-100%25-success)
 ![Tests](https://img.shields.io/badge/tests-passing-success)
 
@@ -11,13 +11,6 @@
 1. **Jenkins configured** with 6 credentials (see [SECURITY_IMPLEMENTATION_COMPLETE.md](SECURITY_IMPLEMENTATION_COMPLETE.md))
 2. **Push code** → Automatic build & deploy via webhook
 3. **Access app**: http://13.61.234.232:4200
-
-## 📊 Current Status 
-
-- ✅ **Build #54**: Deployed successfully
-- ✅ **Audit Score**: 12/12 (100% compliance)
-- ✅ **Security**: All secrets secured in Jenkins Credentials Store
-- ✅ **Rollback**: Build #53 preserved as backup
 
 ---
 
@@ -150,59 +143,259 @@ The `Jenkinsfile` defines a multi-stage pipeline with the following flow:
 
 ### Pipeline Stages
 
+The pipeline uses a **unified flow** with intelligent decision gates:
+
 ```
-1. Validate Environment
+1. Initialize
+   └─ Log context (PR, Main Branch, or Feature Branch)
+
+2. Validate Environment
    ├─ Check Maven, Node.js, npm, Docker, docker-compose, Git, Chrome
    └─ Fail if required tools missing
 
-2. Checkout
+3. Checkout
    └─ Clone repository from GitHub
 
-3. Build Backend
-   ├─ Compile all Spring Boot microservices
+4. Build Backend
+   ├─ Compile all Spring Boot microservices (mvn clean install)
    └─ Package JAR artifacts
 
-4. Run Tests (Parallel)
-   ├─ Backend Tests
-   │  └─ Execute Maven tests with JUnit reports
-   ├─ Build Frontend
-   │  └─ Build Angular application
+5. Test Frontend (unless SKIP_TESTS=true)
+   └─ Run Karma + Jasmine tests for Angular
 
-5. Test Frontend
-   └─ Run Karma tests for Angular
+6. SonarQube Analysis (unless SKIP_TESTS=true)
+   ├─ Backend code quality & security scan
+   └─ Frontend code quality & security scan
 
-6. Deploy
-   ├─ Try: Deploy to AWS via SSH
-   ├─ Catch: Fallback to Docker Compose
-   └─ Health checks and verification
+7. Quality Gate Check (unless SKIP_TESTS=true)
+   └─ Verify SonarQube quality gate passed
 
-7. Post Actions (Always Runs)
-   ├─ Publish test results
-   ├─ Archive artifacts
-   ├─ Success: Send success email with reports
-   ├─ Failure: Send failure email with troubleshooting
-   └─ Unstable: Send unstable build warning
+8. Parallel Stages
+   ├─ Backend Tests: Execute JUnit tests with SureFire reports
+   └─ Frontend Dependencies: npm install with legacy peer deps
+
+9. Post-Build Actions (Always Runs)
+   ├─ Archive test reports & coverage
+   └─ Email notification (success/failure/unstable)
+
+10. DECISION: Is Main Branch? (IS_MAIN_BRANCH)
+    ├─ NO (PR or Feature Branch)
+    │  └─ Build Complete - NO DEPLOYMENT
+    │     └─ End pipeline
+    │
+    └─ YES (Main branch post-merge)
+       └─ Continue to approval gate
+
+11. DECISION: Code Review Required? (REQUIRE_CODE_REVIEW parameter)
+    ├─ NO
+    │  └─ Skip to Deploy
+    │
+    └─ YES
+       └─ CODE REVIEW APPROVAL GATE ⏸️ (BLOCKS HERE)
+          ├─ Timeout: 24 hours
+          ├─ Approved: Continue to Deploy
+          └─ Rejected/Timeout: Pipeline fails
+
+12. Deploy (Main branch only)
+    ├─ Local Docker: docker-compose up
+    ├─ AWS: SSH deploy to EC2 with SSL certs
+    └─ Both: Deploy to both simultaneously
+
+13. Publish Reports & Send Notification
+    └─ Final email with build status
 ```
 
-### Environment Variables
+### Pipeline Decision Flow
 
-The pipeline uses these key variables:
+**All branches (PR, Feature, Main) execute stages 1-9 identically.**
 
-| Variable          | Purpose                           |
-| ----------------- | --------------------------------- |
-| `JENKINS_SCRIPTS` | Path to Jenkins helper scripts    |
-| `TEAM_EMAIL`      | Team email for notifications      |
-| `AWS_KEY_PATH`    | SSH key for AWS deployment        |
-| `AWS_HOST`        | AWS deployment server address     |
-| `DOCKER_REGISTRY` | Docker registry for image storage |
+The pipeline diverges ONLY after post-build:
+
+| Context | Behavior | Approval Gate | Deployment |
+|---------|----------|---------------|------------|
+| **Pull Request** | Tests run on PR code | ✅ GitHub PR approval | ❌ NO |
+| **Feature Branch** | Tests run on feature code | ❌ None | ❌ NO |
+| **Main Branch** (post-merge) | Tests run on merged code | ✅ Jenkins Approval Gate (if enabled) | ✅ YES (if approved) |
+
+### Dual Approval Strategy
+
+The pipeline implements **two approval layers** for production deployments:
+
+#### 1️⃣ GitHub PR Approval (BEFORE Merge)
+- Enforced by GitHub branch protection rules
+- Requires configurable number of approvals (default: 2)
+- All Jenkins status checks must pass
+- **When**: Developer creates/updates PR
+- **Who**: Code reviewers
+- **Purpose**: Ensure code quality and standards
+
+#### 2️⃣ Jenkins Approval Gate (AFTER Merge)
+- Implemented via `input()` block in Jenkinsfile
+- **Only triggered** if `REQUIRE_CODE_REVIEW=true` parameter AND on main branch
+- Timeout: 24 hours
+- **When**: After successful post-merge testing
+- **Who**: DevOps/Release manager from `safezone-reviewers` group
+- **Purpose**: Final approval before production deployment
+
+### Why Re-Test After Merge?
+
+Post-merge testing catches issues that didn't exist in the isolated PR:
+
+```
+Scenario: Two PRs merged sequentially
+
+PR-A (Dependency X v1.0)
+  ├─ Tests pass ✓
+  └─ Merged to main
+
+PR-B (Dependency X v2.0)
+  ├─ Tests pass in isolation ✓
+  ├─ Merged to main
+  └─ Merge conflict: X v2.0 breaks compatibility
+
+Post-Merge Test on main:
+  └─ Tests fail ✗ (X v2.0 incompatibility caught!)
+  └─ Deployment blocked ✅
+```
+
+### Pipeline Parameters
+
+You can control pipeline behavior when triggering manually:
+
+| Parameter | Type | Default | Effect |
+|-----------|------|---------|--------|
+| `DEPLOYMENT_TARGET` | choice | AWS | Where to deploy: `Local Docker`, `AWS`, or `Both` |
+| `SKIP_TESTS` | boolean | false | Skip test stages (not recommended) |
+| `SKIP_FRONTEND_BUILD` | boolean | false | Skip frontend build (backend changes only) |
+| `FORCE_REBUILD` | boolean | false | Force clean rebuild (ignore cache) |
+| `CUSTOM_TAG` | string | (empty) | Custom Docker tag (defaults to build number) |
+| `SONARQUBE_URL_OVERRIDE` | string | ngrok URL | Override SonarQube URL (for remote Jenkins) |
+| `SONAR_TOKEN_OVERRIDE` | string | (empty) | Override SonarQube token |
+| `REQUIRE_CODE_REVIEW` | boolean | true | Require Jenkins approval gate before deploy (main only) |
+
+### Pipeline Execution Timeline
+
+**Typical execution times:**
+
+```
+All Branches (Stages 1-9):  ~90 minutes
+├─ Initialize:               1 min
+├─ Validate Environment:     2 min
+├─ Checkout:                 3 min
+├─ Build Backend:           30 min
+├─ Test Frontend:           15 min
+├─ SonarQube Analysis:      10 min
+├─ Quality Gate:             5 min
+├─ Parallel Tests:          20 min
+└─ Post Actions:             5 min
+
+Main Branch Only (if approved):
+├─ Code Review Gate:    Variable (user-dependent, max 24h)
+├─ Deploy:              5-60 min (depends on target)
+└─ Email:               1 min
+
+Total for Main: 90 minutes + approval time + deployment time
+```
+
+### Real-World Scenarios
+
+**Scenario 1: Feature Branch Push**
+```
+$ git push origin feature-x
+  ↓
+Jenkins builds & tests
+  ↓
+Tests pass ✓
+  ↓
+Email notification: "Build #54 PASSED"
+  ↓
+No deployment (feature branch)
+```
+
+**Scenario 2: PR Merge (REQUIRE_CODE_REVIEW=true)**
+```
+$ (PR gets 2+ approvals)
+$ (Click "Merge PR" on GitHub)
+  ↓
+GitHub webhook triggers Jenkins on main
+  ↓
+Jenkins re-runs all tests on merged code
+  ↓
+Tests pass ✓
+  ↓
+⏸️ CODE REVIEW APPROVAL GATE blocks pipeline
+  ↓
+(DevOps reviewer clicks "APPROVE & DEPLOY")
+  ↓
+Deploy to AWS/Local Docker
+  ↓
+Email notification: "Build #55 DEPLOYED"
+```
+
+**Scenario 3: PR Merge (REQUIRE_CODE_REVIEW=false)**
+```
+$ (PR gets 2+ approvals)
+$ (Click "Merge PR" on GitHub)
+  ↓
+GitHub webhook triggers Jenkins on main
+  ↓
+Jenkins re-runs all tests on merged code
+  ↓
+Tests pass ✓
+  ↓
+Skip approval gate (disabled)
+  ↓
+Deploy to AWS/Local Docker
+  ↓
+Email notification: "Build #55 DEPLOYED"
+```
+
+**Scenario 4: Post-Merge Tests Fail**
+```
+$ (PR gets 2+ approvals)
+$ (Click "Merge PR" on GitHub)
+  ↓
+GitHub webhook triggers Jenkins on main
+  ↓
+Jenkins re-runs all tests on merged code
+  ↓
+❌ Tests FAIL (merge conflict, incompatibility, etc.)
+  ↓
+Pipeline stops - NO DEPLOYMENT ✅
+  ↓
+Email notification: "Build #55 FAILED"
+  ↓
+Developers must fix on main and push correction
+```
+
+For detailed pipeline visualization, see [JENKINSFILE_WORKFLOW_DIAGRAM.md](JENKINSFILE_WORKFLOW_DIAGRAM.md).
+
+### Jenkins Credentials Required
+
+The pipeline requires these credentials to be configured in Jenkins:
+
+| Credential ID | Type | Purpose |
+|---------------|------|---------|
+| `team-email` | Secret text | Email for build notifications |
+| `aws-deploy-host` | Secret text | AWS EC2 hostname/IP |
+| `aws-deploy-user` | Secret text | SSH user for AWS |
+| `aws-ssh-key-file` | Secret file | SSH private key (.pem) |
+| `mongo-root-username` | Secret text | MongoDB root username |
+| `mongo-root-password` | Secret text | MongoDB root password |
+| `api-gateway-url` | Secret text | API Gateway URL for deployment |
+| `github-token` | Secret text | GitHub Personal Access Token |
+| `jedi-sonarqube-ngrok-token` | Secret text | SonarQube authentication token |
+| `frontend-ssl-cert` | Secret file | SSL certificate for HTTPS |
+| `frontend-ssl-key` | Secret file | SSL private key for HTTPS |
 
 ### Test Report Files
 
-After build completion, you'll find:
+After build completion, test results are archived:
 
-- **Backend Tests**: `**/target/surefire-reports/*.xml`
-- **Frontend Tests**: `buy-01-ui/coverage/` (if coverage is enabled)
-- **Build Artifacts**: Accessible in Jenkins UI under "Artifacts"
+- **Backend Tests**: `**/target/surefire-reports/*.xml` - JUnit test results
+- **Frontend Tests**: `buy-01-ui/coverage/` - Karma/Jasmine coverage reports
+- **SonarQube Reports**: `target/sonar/report-task.txt` - Quality gate results
+- **Build Artifacts**: Accessible in Jenkins UI under "Artifacts" section
 
 ## 🏗️ Architecture Overview
 
@@ -915,19 +1108,7 @@ curl -X POST http://localhost:8080/api/media/upload \
 - Database per Service
 - JWT Authentication
 
-## 📄 License
-
-This project is developed for educational purposes as part of a university project.
-
 ## 👨‍💻 Contributors
 
 - [@jeeeeedi](https://github.com/jeeeeedi)
 - [@oafilali](https://github.com/oafilali)
-- [@Anastasia](https://github.com/An1Su)
-- [@SaddamHosyn](https://github.com/SaddamHosyn)
-
----
-
-**Built with ❤️ using Spring Boot, Angular, Kafka, and MongoDB**
-
-_For questions or issues, please open an issue on GitHub._
