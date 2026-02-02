@@ -65,11 +65,17 @@ fi
 
 # Check Docker daemon is running
 echo -n "Checking Docker daemon... "
-if docker ps > /dev/null 2>&1; then
+DOCKER_PS_OUT=$(docker ps 2>&1)
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓${NC} (running)"
 else
-    echo -e "${RED}✗ NOT RUNNING${NC}"
-    echo "  Please start Docker daemon"
+    echo -e "${RED}✗ FAILED${NC}"
+    if echo "$DOCKER_PS_OUT" | grep -q "permission denied"; then
+        echo "  Permission denied to /var/run/docker.sock"
+        echo "  Try: docker exec -u root jenkins-local chmod 666 /var/run/docker.sock"
+    else
+        echo "  Docker daemon is not responding or not running"
+    fi
     VALIDATION_FAILED=1
 fi
 

@@ -191,11 +191,17 @@ pipeline {
                 script {
                     echo "Using SonarQube at: ${env.SONARQUBE_URL}"
                     
-                    // Prepare PR-specific parameters if this is a pull request
-                    def prParams = ""
+                    // Prepare PR-specific or Branch-specific parameters
+                    def sonarParams = ""
                     if (env.IS_PULL_REQUEST == "true") {
-                        prParams = "-Dsonar.pullrequest.key=${env.CHANGE_ID} -Dsonar.pullrequest.branch=${env.SOURCE_BRANCH} -Dsonar.pullrequest.base=${env.TARGET_BRANCH}"
+                        sonarParams = "-Dsonar.pullrequest.key=${env.CHANGE_ID} -Dsonar.pullrequest.branch=${env.SOURCE_BRANCH} -Dsonar.pullrequest.base=${env.TARGET_BRANCH}"
                         echo "📝 Configuring PR analysis for pull request #${env.CHANGE_ID}"
+                    } else {
+                        def branchName = env.GIT_BRANCH ?: "main"
+                        // Clean branch name (remove origin/ prefix if present)
+                        branchName = branchName.replace('origin/', '')
+                        sonarParams = "-Dsonar.branch.name=${branchName}"
+                        echo "🌿 Configuring Branch analysis for branch: ${branchName}"
                     }
                     
                     
@@ -204,11 +210,11 @@ pipeline {
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                         withSonarQubeEnv('SonarQube') {
                             // 1. Scan the Backend (Java Microservices)
-                            sh "mvn sonar:sonar ${prParams} -Dsonar.host.url='${env.SONARQUBE_URL}' -Dsonar.token='${SONAR_TOKEN}'"
+                            sh "mvn sonar:sonar ${sonarParams} -Dsonar.host.url='${env.SONARQUBE_URL}' -Dsonar.token='${SONAR_TOKEN}'"
                             
                             // 2. Scan the Frontend (Angular)
                             sh """
-                                mvn sonar:sonar -N ${prParams} \\
+                                mvn sonar:sonar -N ${sonarParams} \\
                                     -Dsonar.projectKey=safezone-frontend \\
                                     -Dsonar.projectName="SafeZone Frontend" \\
                                     -Dsonar.sources=buy-01-ui/src \\
@@ -427,8 +433,10 @@ Action: APPROVE or REJECT
                                  buy-01-mongodb buy-01-kafka buy-01-zookeeper || true
                     
                     # Use "docker compose" (v2) which is standard in modern Docker
-                    # node: skipping 'down' to preserve SonarQube container
-                    docker compose -f docker-compose.yml up -d
+                    # Exclude infrastructure services (SonarQube) from recreation during deployment
+                    docker compose -f docker-compose.yml up -d \
+                        mongodb zookeeper kafka mailhog \
+                        service-registry api-gateway user-service product-service media-service frontend
                     cd ..
                 '''
                 echo "✅ Local deployment successful!"
