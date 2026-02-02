@@ -8,9 +8,9 @@
 
 ## 🎯 Quick Start
 
-1. **Jenkins configured** with 6 credentials (see [SECURITY_IMPLEMENTATION_COMPLETE.md](SECURITY_IMPLEMENTATION_COMPLETE.md))
-2. **Push code** → Automatic build & deploy via webhook
-3. **Access app**: http://13.61.234.232:4200
+1. **Jenkins configured** with required credentials (see [Jenkins Credentials Required](#jenkins-credentials-required))
+2. **Push code** → Automatic build & deploy via ngrok webhook
+3. **Access app**: http://localhost:4200 (Frontend) | http://localhost:8080 (API Gateway)
 
 ---
 
@@ -93,16 +93,17 @@ ngrok http 8090
 
 ### Step 3: Configure Email Notifications
 
-1. **Manage Jenkins** → **Configure System**
-2. Scroll to **E-mail Notification** section:
+1. **Manage Jenkins** → **System**
+2. Scroll to **E-mail Notification** section at the bottom:
    - **SMTP server**: `smtp.gmail.com`
-   - **SMTP port**: `587`
-   - **Default user e-mail suffix**: `@gmail.com`
-3. Check ☑️ **Use SMTP Authentication**
+   - **SMTP port**: `465` (Use SSL)
+3. Click **Advanced...**
+4. Check ☑️ **Use SMTP Authentication**
    - **Username**: Your Gmail address
-   - **Password**: [Gmail App Password](https://support.google.com/accounts/answer/185833)
-   - **Use TLS**: ✓ Check this box
-4. **Test configuration** and **Save**
+   - **Password**: [Gmail App Password](https://support.google.com/accounts/answer/185833) (16-character code)
+   - **Use SSL**: ✓ Check this box
+5. **System Admin e-mail address** (under Jenkins Location): Set to your Gmail address.
+6. **Test configuration** and **Save**
 
 ### Step 4: Configure Jenkins Job
 
@@ -168,7 +169,7 @@ The pipeline uses a **unified flow** with intelligent decision gates:
    └─ Frontend code quality & security scan
 
 7. Quality Gate Check (unless SKIP_TESTS=true)
-   └─ Verify SonarQube quality gate passed
+   └─ Verify SonarQube quality gate passed (supports multi-branch analysis)
 
 8. Parallel Stages
    ├─ Backend Tests: Execute JUnit tests with SureFire reports
@@ -376,15 +377,12 @@ The pipeline requires these credentials to be configured in Jenkins:
 
 | Credential ID | Type | Purpose |
 |---------------|------|---------|
-| `team-email` | Secret text | Email for build notifications |
-| `aws-deploy-host` | Secret text | AWS EC2 hostname/IP |
-| `aws-deploy-user` | Secret text | SSH user for AWS |
-| `aws-ssh-key-file` | Secret file | SSH private key (.pem) |
+| `team-email` | Secret text | Email for build notifications (destination) |
 | `mongo-root-username` | Secret text | MongoDB root username |
 | `mongo-root-password` | Secret text | MongoDB root password |
 | `api-gateway-url` | Secret text | API Gateway URL for deployment |
 | `github-token` | Secret text | GitHub Personal Access Token |
-| `jedi-sonarqube-ngrok-token` | Secret text | SonarQube authentication token |
+| `sonarqube-token` | Secret text | SonarQube authentication token |
 | `frontend-ssl-cert` | Secret file | SSL certificate for HTTPS |
 | `frontend-ssl-key` | Secret file | SSL private key for HTTPS |
 
