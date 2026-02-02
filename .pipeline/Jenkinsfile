@@ -497,9 +497,7 @@ Action: APPROVE or REJECT
                         subject: "✅ BUILD SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
                         to: "${TEAM_EMAIL}",
-                        mimeType: 'text/html',
-                        host: 'mailhog',
-                        port: 1025
+                        mimeType: 'text/html'
                     )
                 } catch (Exception e) {
                     echo "⚠️ Email notification failed: ${e.message}"
@@ -525,9 +523,7 @@ Action: APPROVE or REJECT
                         subject: "❌ BUILD FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
                         to: "${TEAM_EMAIL}",
-                        mimeType: 'text/html',
-                        host: 'mailhog',
-                        port: 1025
+                        mimeType: 'text/html'
                     )
                 } catch (Exception e) {
                     echo "⚠️ Email notification failed: ${e.message}"
@@ -551,9 +547,7 @@ Action: APPROVE or REJECT
                         subject: "⚠️ BUILD UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: emailBody,
                         to: "${TEAM_EMAIL}",
-                        mimeType: 'text/html',
-                        host: 'mailhog',
-                        port: 1025
+                        mimeType: 'text/html'
                     )
                 } catch (Exception e) {
                     echo "⚠️ Email notification failed: ${e.message}"
