@@ -435,7 +435,7 @@ Action: APPROVE or REJECT
                     # Use "docker compose" (v2) which is standard in modern Docker
                     # Exclude infrastructure services (SonarQube) from recreation during deployment
                     docker compose -f docker-compose.yml up -d \
-                        mongodb zookeeper kafka mailhog \
+                        mongodb zookeeper kafka \
                         service-registry api-gateway user-service product-service media-service frontend
                     cd ..
                 '''
