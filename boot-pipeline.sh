@@ -70,6 +70,12 @@ echo ""
 # Start Jenkins
 echo -e "${YELLOW}[3/4] Starting Jenkins...${NC}"
 
+# Build custom Jenkins image if it doesn't exist
+if ! docker image inspect jenkins/jenkins:with-tools > /dev/null 2>&1; then
+    echo -e "${YELLOW}  Building custom Jenkins image with Maven, Node.js, and Docker...${NC}"
+    docker build -f ./.pipeline/Dockerfile.jenkins -t jenkins/jenkins:with-tools . > /dev/null 2>&1 || true
+fi
+
 # Check if jenkins-local container exists
 if docker ps -a --format '{{.Names}}' | grep -q '^jenkins-local$'; then
     echo -e "${YELLOW}  Jenkins container found, starting...${NC}"
@@ -81,7 +87,8 @@ else
         -p 8088:8080 \
         -p 50000:50000 \
         -v jenkins_home:/var/jenkins_home \
-        jenkins/jenkins:latest > /dev/null 2>&1 || true
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        jenkins/jenkins:with-tools > /dev/null 2>&1 || true
 fi
 
 echo -e "${YELLOW}Waiting for Jenkins to start...${NC}"

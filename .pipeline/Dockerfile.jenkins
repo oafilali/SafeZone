@@ -1,0 +1,36 @@
+FROM jenkins/jenkins:lts
+
+USER root
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    wget \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Maven
+RUN mkdir -p /opt/maven && \
+    curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz | \
+    tar xz -C /opt/maven --strip-components=1
+
+# Install Node.js (includes npm)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Docker CLI only (Docker daemon runs on host)
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add jenkins user to docker group
+RUN usermod -aG docker jenkins
+
+# Set Maven and Node.js in PATH
+ENV PATH="/opt/maven/bin:$PATH"
+ENV MAVEN_HOME="/opt/maven"
+ENV NODE_HOME="/usr"
+
+USER jenkins
