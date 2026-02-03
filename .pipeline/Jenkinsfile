@@ -371,7 +371,7 @@ Action: APPROVE or REJECT
             when {
                 allOf {
                     expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
-                    // expression { env.IS_MAIN_BRANCH == "true" }  // DEPLOY ON ALL BRANCHES FOR TESTING
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only deploy from main branch
                 }
             }
             options {
