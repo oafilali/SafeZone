@@ -77,8 +77,16 @@ RUN echo "=== Build Tools Verification ===" && \
     echo "" && \
     echo "All required build tools are installed and verified!"
 
-# Switch back to jenkins user
-USER jenkins
+# Copy custom entrypoint script that fixes Docker socket permissions at runtime
+COPY jenkins-entrypoint.sh /usr/local/bin/jenkins-entrypoint.sh
+RUN chmod +x /usr/local/bin/jenkins-entrypoint.sh
+
+# Keep running as root so entrypoint can fix socket permissions
+# The entrypoint will switch to jenkins user before starting Jenkins
+# USER jenkins (don't set this, let entrypoint handle it)
+
+# Set custom entrypoint that fixes docker socket permissions
+ENTRYPOINT ["/usr/local/bin/jenkins-entrypoint.sh"]
 
 # Jenkins plugins will be automatically installed on first run
 # via the Jenkins initialization system
