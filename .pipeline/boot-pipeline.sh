@@ -250,12 +250,12 @@ fi
 # Fix Docker socket permissions for Jenkins access
 log "Setting up Docker socket permissions..."
 if [ -S /var/run/docker.sock ]; then
-    # Get the GID of docker group on host
-    DOCKER_GID=$(stat -f%g /var/run/docker.sock 2>/dev/null || stat -c%g /var/run/docker.sock 2>/dev/null || echo "")
-    
-    # Ensure socket has group-readable permissions
-    sudo chmod g+rw /var/run/docker.sock 2>/dev/null || true
-    sudo chgrp 999 /var/run/docker.sock 2>/dev/null || true  # Jenkins runs as gid 999 typically
+    # Make docker socket world-accessible so Jenkins inside container can use it
+    # This is necessary because the container's jenkins user GID won't match host's docker GID
+    sudo chmod 666 /var/run/docker.sock 2>/dev/null || {
+        echo "⚠️  Cannot chmod docker socket (may need manual intervention)"
+        echo "    Try: sudo chmod 666 /var/run/docker.sock"
+    }
     
     success "Docker socket permissions configured"
 else

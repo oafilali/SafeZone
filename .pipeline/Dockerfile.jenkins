@@ -42,21 +42,23 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     node --version && \
     npm --version
 
-# Install Docker CLI from Docker repository
+# Install Docker CLI - use docker.io package which supports all architectures
 RUN apt-get update && \
-    apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y docker-ce-cli && \
+    apt-get install -y docker.io && \
     rm -rf /var/lib/apt/lists/* && \
     docker --version
 
+# Install Docker Compose v2 as a CLI plugin
+RUN DOCKER_COMPOSE_VERSION="v2.24.5" && \
+    mkdir -p /usr/local/lib/docker/cli-plugins && \
+    curl -SL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+         -o /usr/local/lib/docker/cli-plugins/docker-compose && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
+    docker compose version
+
 # Add jenkins user to docker group for socket access
-# First, create docker group if it doesn't exist with a known GID
-RUN groupmod -g 999 docker 2>/dev/null || groupadd -g 999 docker && \
-    usermod -aG docker jenkins
+# The docker group already exists from docker.io package, just add jenkins to it
+RUN usermod -aG docker jenkins || true
 
 # Create directories for Jenkins plugins and configurations
 RUN mkdir -p /var/jenkins_home/plugins /var/jenkins_home/init.groovy.d && \
@@ -69,7 +71,7 @@ RUN chmod 755 /var/jenkins_home
 ENV PATH="${MAVEN_HOME}/bin:${PATH}"
 ENV MAVEN_HOME="${MAVEN_HOME}"
 ENV NODE_HOME="/usr"
-ENV JAVA_HOME="/usr/local/openjdk-21"
+ENV JAVA_HOME="/opt/java/openjdk"
 
 # Verify all tools are accessible
 RUN echo "=== Build Tools Verification ===" && \
@@ -77,14 +79,23 @@ RUN echo "=== Build Tools Verification ===" && \
     echo "Node.js: $(node --version)" && \
     echo "npm: $(npm --version)" && \
     echo "Docker CLI: $(docker --version)" && \
+    echo "Docker Compose: $(docker compose version)" && \
     echo "Chromium: $(chromium --version)" && \
     echo "Git: $(git --version)" && \
     echo "=== Verification Complete ===" && \
     echo "" && \
     echo "All required build tools are installed and verified!"
 
-# Switch back to jenkins user
-USER jenkins
+# Copy custom entrypoint script that fixes Docker socket permissions at runtime
+COPY jenkins-entrypoint.sh /usr/local/bin/jenkins-entrypoint.sh
+RUN chmod +x /usr/local/bin/jenkins-entrypoint.sh
+
+# Keep running as root so entrypoint can fix socket permissions
+# The entrypoint will switch to jenkins user before starting Jenkins
+# USER jenkins (don't set this, let entrypoint handle it)
+
+# Set custom entrypoint that fixes docker socket permissions
+ENTRYPOINT ["/usr/local/bin/jenkins-entrypoint.sh"]
 
 # Jenkins plugins will be automatically installed on first run
 # via the Jenkins initialization system
