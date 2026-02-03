@@ -65,22 +65,56 @@ pipeline {
             }
         }
         
-        stage('SonarQube') {
-            steps {
-                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('SonarQube') {
-                        script {
-                            def branch = env.GIT_BRANCH?.replace('origin/', '') ?: 'main'
-                            sh "mvn sonar:sonar -Dsonar.branch.name=${branch} -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.token=${SONAR_TOKEN}"
+        stage('SonarQube Analysis') {
+            parallel {
+                stage('Backend Analysis') {
+                    steps {
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            withSonarQubeEnv('SonarQube') {
+                                script {
+                                    def branch = env.GIT_BRANCH?.replace('origin/', '') ?: 'main'
+                                    sh "mvn sonar:sonar -Dsonar.branch.name=${branch} -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.token=${SONAR_TOKEN}"
+                                }
+                            }
                         }
                     }
-                    // Wait for Quality Gate result with increased timeout
-                    timeout(time: 10, unit: 'MINUTES') {
-                        script {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
+                }
+                stage('Frontend Analysis') {
+                    steps {
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            withSonarQubeEnv('SonarQube') {
+                                dir('buy-01-ui') {
+                                    script {
+                                        def branch = env.GIT_BRANCH?.replace('origin/', '') ?: 'main'
+                                        // Install sonar-scanner if not present
+                                        sh '''
+                                            if ! command -v sonar-scanner &> /dev/null; then
+                                                npm install -g sonarqube-scanner
+                                            fi
+                                        '''
+                                        // Run SonarQube analysis
+                                        sh """
+                                            npx sonarqube-scanner \
+                                                -Dsonar.branch.name=${branch} \
+                                                -Dsonar.host.url=${SONARQUBE_URL} \
+                                                -Dsonar.token=${SONAR_TOKEN}
+                                        """
+                                    }
+                                }
                             }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
                         }
                     }
                 }
