@@ -10,7 +10,7 @@
 #
 ################################################################################
 
-set -e
+set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -36,12 +36,12 @@ check_critical() {
     
     echo -n "Checking $name... "
     if command -v "$cmd" &>/dev/null; then
-        local ver=$("$cmd" --version 2>/dev/null | head -1)
+        local ver=$("$cmd" --version 2>/dev/null | head -1 || echo "installed")
         echo -e "${GREEN}✓${NC} ($ver)"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
     else
         echo -e "${RED}✗ MISSING${NC}"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 }
 
