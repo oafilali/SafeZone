@@ -155,21 +155,47 @@ pipeline {
                         set -e
                         mkdir -p target/surefire-reports
                         
-                        # Detect Chrome binary location
-                        export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "")
+                        # Detect Chrome/Chromium binary - support multiple possible locations
+                        export CHROME_BIN=""
                         
-                        if [ -z "$CHROME_BIN" ] || [ ! -f "$CHROME_BIN" ]; then
-                            echo "❌ Error: Chrome not found! Frontend tests cannot be executed."
-                            echo "To fix: Install Chrome/Chromium on the build agent or set CHROME_BIN environment variable."
+                        # Try common Linux paths first (Jenkins container)
+                        for chrome_path in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/chrome; do
+                            if [ -x "$chrome_path" ]; then
+                                export CHROME_BIN="$chrome_path"
+                                break
+                            fi
+                        done
+                        
+                        # Fallback to 'which' command
+                        if [ -z "$CHROME_BIN" ]; then
+                            export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "")
+                        fi
+                        
+                        # Verify Chrome/Chromium was found
+                        if [ -z "$CHROME_BIN" ] || [ ! -x "$CHROME_BIN" ]; then
+                            echo "❌ Error: Chrome/Chromium not found! Frontend tests cannot be executed."
+                            echo "   Checked locations:"
+                            echo "     - /usr/bin/chromium"
+                            echo "     - /usr/bin/chromium-browser"
+                            echo "     - /usr/bin/google-chrome"
+                            echo "   PATH: $PATH"
+                            echo ""
+                            echo "To fix: Build Jenkins image with Chromium installed"
+                            echo "   Command: ./boot-pipeline.sh --rebuild-jenkins"
                             exit 1
                         fi
                         
-                        echo "Using Chrome: $CHROME_BIN"
+                        echo "Using Chrome/Chromium: $CHROME_BIN"
+                        $CHROME_BIN --version
+                        
+                        # Run frontend tests with Karma
                         npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
+                        
                         if [ $? -ne 0 ]; then
                             echo "❌ Frontend tests FAILED! Pipeline will STOP here."
                             exit 1
                         fi
+                        
                         echo "✅ Frontend tests completed with code coverage"
                     '''
                 }
