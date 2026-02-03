@@ -156,7 +156,7 @@ pipeline {
                         mkdir -p target/surefire-reports
                         
                         # Detect Chrome binary location
-                        export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" 2>/dev/null || echo "")
+                        export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "")
                         
                         if [ -z "$CHROME_BIN" ] || [ ! -f "$CHROME_BIN" ]; then
                             echo "❌ Error: Chrome not found! Frontend tests cannot be executed."
