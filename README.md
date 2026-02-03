@@ -214,17 +214,18 @@ The pipeline uses a **unified flow** with intelligent decision gates:
 
 The pipeline diverges ONLY after post-build:
 
-| Context | Behavior | Approval Gate | Deployment |
-|---------|----------|---------------|------------|
-| **Pull Request** | Tests run on PR code | ✅ GitHub PR approval | ❌ NO |
-| **Feature Branch** | Tests run on feature code | ❌ None | ❌ NO |
-| **Main Branch** (post-merge) | Tests run on merged code | ✅ Jenkins Approval Gate (if enabled) | ✅ YES (if approved) |
+| Context                      | Behavior                  | Approval Gate                         | Deployment           |
+| ---------------------------- | ------------------------- | ------------------------------------- | -------------------- |
+| **Pull Request**             | Tests run on PR code      | ✅ GitHub PR approval                 | ❌ NO                |
+| **Feature Branch**           | Tests run on feature code | ❌ None                               | ❌ NO                |
+| **Main Branch** (post-merge) | Tests run on merged code  | ✅ Jenkins Approval Gate (if enabled) | ✅ YES (if approved) |
 
 ### Dual Approval Strategy
 
 The pipeline implements **two approval layers** for production deployments:
 
 #### 1️⃣ GitHub PR Approval (BEFORE Merge)
+
 - Enforced by GitHub branch protection rules
 - Requires configurable number of approvals (default: 2)
 - All Jenkins status checks must pass
@@ -233,6 +234,7 @@ The pipeline implements **two approval layers** for production deployments:
 - **Purpose**: Ensure code quality and standards
 
 #### 2️⃣ Jenkins Approval Gate (AFTER Merge)
+
 - Implemented via `input()` block in Jenkinsfile
 - **Only triggered** if `REQUIRE_CODE_REVIEW=true` parameter AND on main branch
 - Timeout: 24 hours
@@ -265,16 +267,16 @@ Post-Merge Test on main:
 
 You can control pipeline behavior when triggering manually:
 
-| Parameter | Type | Default | Effect |
-|-----------|------|---------|--------|
-| `DEPLOYMENT_TARGET` | choice | AWS | Where to deploy: `Local Docker`, `AWS`, or `Both` |
-| `SKIP_TESTS` | boolean | false | Skip test stages (not recommended) |
-| `SKIP_FRONTEND_BUILD` | boolean | false | Skip frontend build (backend changes only) |
-| `FORCE_REBUILD` | boolean | false | Force clean rebuild (ignore cache) |
-| `CUSTOM_TAG` | string | (empty) | Custom Docker tag (defaults to build number) |
-| `SONARQUBE_URL_OVERRIDE` | string | ngrok URL | Override SonarQube URL (for remote Jenkins) |
-| `SONAR_TOKEN_OVERRIDE` | string | (empty) | Override SonarQube token |
-| `REQUIRE_CODE_REVIEW` | boolean | true | Require Jenkins approval gate before deploy (main only) |
+| Parameter                | Type    | Default   | Effect                                                  |
+| ------------------------ | ------- | --------- | ------------------------------------------------------- |
+| `DEPLOYMENT_TARGET`      | choice  | AWS       | Where to deploy: `Local Docker`, `AWS`, or `Both`       |
+| `SKIP_TESTS`             | boolean | false     | Skip test stages (not recommended)                      |
+| `SKIP_FRONTEND_BUILD`    | boolean | false     | Skip frontend build (backend changes only)              |
+| `FORCE_REBUILD`          | boolean | false     | Force clean rebuild (ignore cache)                      |
+| `CUSTOM_TAG`             | string  | (empty)   | Custom Docker tag (defaults to build number)            |
+| `SONARQUBE_URL_OVERRIDE` | string  | ngrok URL | Override SonarQube URL (for remote Jenkins)             |
+| `SONAR_TOKEN_OVERRIDE`   | string  | (empty)   | Override SonarQube token                                |
+| `REQUIRE_CODE_REVIEW`    | boolean | true      | Require Jenkins approval gate before deploy (main only) |
 
 ### Pipeline Execution Timeline
 
@@ -303,6 +305,7 @@ Total for Main: 90 minutes + approval time + deployment time
 ### Real-World Scenarios
 
 **Scenario 1: Feature Branch Push**
+
 ```
 $ git push origin feature-x
   ↓
@@ -316,6 +319,7 @@ No deployment (feature branch)
 ```
 
 **Scenario 2: PR Merge (REQUIRE_CODE_REVIEW=true)**
+
 ```
 $ (PR gets 2+ approvals)
 $ (Click "Merge PR" on GitHub)
@@ -336,6 +340,7 @@ Email notification: "Build #55 DEPLOYED"
 ```
 
 **Scenario 3: PR Merge (REQUIRE_CODE_REVIEW=false)**
+
 ```
 $ (PR gets 2+ approvals)
 $ (Click "Merge PR" on GitHub)
@@ -354,6 +359,7 @@ Email notification: "Build #55 DEPLOYED"
 ```
 
 **Scenario 4: Post-Merge Tests Fail**
+
 ```
 $ (PR gets 2+ approvals)
 $ (Click "Merge PR" on GitHub)
@@ -377,16 +383,16 @@ For detailed pipeline visualization, see [JENKINSFILE_WORKFLOW_DIAGRAM.md](JENKI
 
 The pipeline requires these credentials to be configured in Jenkins:
 
-| Credential ID | Type | Purpose |
-|---------------|------|---------|
-| `team-email` | Secret text | Email for build notifications (destination) |
-| `mongo-root-username` | Secret text | MongoDB root username |
-| `mongo-root-password` | Secret text | MongoDB root password |
-| `api-gateway-url` | Secret text | API Gateway URL for deployment |
-| `github-token` | Secret text | GitHub Personal Access Token |
-| `sonarqube-token` | Secret text | SonarQube authentication token |
-| `frontend-ssl-cert` | Secret file | SSL certificate for HTTPS |
-| `frontend-ssl-key` | Secret file | SSL private key for HTTPS |
+| Credential ID         | Type        | Purpose                                     |
+| --------------------- | ----------- | ------------------------------------------- |
+| `team-email`          | Secret text | Email for build notifications (destination) |
+| `mongo-root-username` | Secret text | MongoDB root username                       |
+| `mongo-root-password` | Secret text | MongoDB root password                       |
+| `api-gateway-url`     | Secret text | API Gateway URL for deployment              |
+| `github-token`        | Secret text | GitHub Personal Access Token                |
+| `sonarqube-token`     | Secret text | SonarQube authentication token              |
+| `frontend-ssl-cert`   | Secret file | SSL certificate for HTTPS                   |
+| `frontend-ssl-key`    | Secret file | SSL private key for HTTPS                   |
 
 ### Test Report Files
 
