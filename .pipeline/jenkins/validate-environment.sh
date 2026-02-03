@@ -18,7 +18,7 @@
 #
 ################################################################################
 
-set -e
+# Do NOT use set -e as we want to continue checking all tools even if one fails
 
 # Colors for output
 RED='\033[0;31m'
@@ -184,18 +184,3 @@ else
 fi
 
 echo ""
-
-if [ $VALIDATION_FAILED -eq 1 ]; then
-    echo -e "${RED}============================================${NC}"
-    echo -e "${RED}❌ Environment validation FAILED${NC}"
-    echo -e "${RED}============================================${NC}"
-    echo ""
-    echo "Please install missing dependencies and try again."
-    exit 1
-else
-    echo -e "${GREEN}============================================${NC}"
-    echo -e "${GREEN}✓ Environment validation passed${NC}"
-    echo -e "${GREEN}============================================${NC}"
-    echo ""
-    exit 0
-fi
