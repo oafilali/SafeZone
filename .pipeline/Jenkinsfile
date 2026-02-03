@@ -188,6 +188,14 @@ pipeline {
                         echo "Using Chrome/Chromium: $CHROME_BIN"
                         $CHROME_BIN --version
                         
+                        # Install dependencies if node_modules doesn't exist or is incomplete
+                        if [ ! -d "node_modules" ] || [ ! -f "node_modules/.package-lock.json" ]; then
+                            echo "Installing frontend dependencies..."
+                            npm install --legacy-peer-deps
+                        else
+                            echo "Dependencies already installed, skipping npm install"
+                        fi
+                        
                         # Run frontend tests with Karma
                         npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
                         
