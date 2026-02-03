@@ -418,15 +418,16 @@ SonarQube is integrated into the CI/CD pipeline to enforce code quality standard
 **URL**: http://localhost:9000
 
 **Credentials**:
+
 - **Username**: `admin`
 - **Password**: `admin123`
 
 **Configured Projects**:
+
 1. **SafeZone E-Commerce Platform** (`safezone-ecommerce`)
    - Language: Java 17 / XML
    - Lines of Code: ~2,900
    - Quality Profile: Sonar way
-   
 2. **SafeZone Frontend** (`safezone-frontend`)
    - Language: TypeScript / CSS / HTML
    - Lines of Code: ~6,000
@@ -439,11 +440,13 @@ SonarQube is integrated into the CI/CD pipeline to enforce code quality standard
 SonarQube is integrated through the Jenkins CI/CD pipeline:
 
 **Integration Flow**:
+
 ```
 GitHub Push → GitHub Webhook → Jenkins Build → SonarQube Analysis → Quality Gate Check → Deploy (if passed)
 ```
 
 **Webhook Configuration**:
+
 - **Jenkins Webhook**: GitHub repository configured to trigger Jenkins on push
 - **SonarQube Webhook**: SonarQube sends Quality Gate results back to Jenkins
   - URL: `http://host.docker.internal:8088/sonarqube-webhook/`
@@ -548,6 +551,7 @@ stage('SonarQube Analysis') {
 ```
 
 **Analysis Behavior**:
+
 - **Parallel Execution**: Backend and frontend analyzed simultaneously (faster builds)
 - **Inline Quality Gate Checks**: Each project validated immediately after analysis
 - **Pipeline Blocking**: If either backend OR frontend fails Quality Gate, deployment is blocked
@@ -578,12 +582,10 @@ Finished: FAILURE
    - New Issues > 0 = FAIL
    - Security Hotspots reviewed = PASS
    - Coverage on New Code > 0% (if available)
-   
 2. **Jenkins Pipeline Validation** (Automated)
    - Backend Quality Gate must pass
    - Frontend Quality Gate must pass
    - All tests must pass
-   
 3. **GitHub Pull Request Review** (Manual)
    - Requires code review approval
    - All CI checks must pass (including SonarQube)
@@ -608,10 +610,8 @@ Finished: FAILURE
 - **Build #16**: Backend Quality Gate FAILED (2 issues)
   - Issue 1: `S2699` - Test without assertion
   - Issue 2: `S5786` - Public modifier in JUnit5 test class
-  
 - **Build #17**: Fixed issue #1 (commit `52f2a9c`)
   - Replaced `assert` with `assertNotNull()`
-  
 - **Build #18**: Fixed issue #2 (commit `4fbc850`)
   - Changed `public class` to `class` (package-private)
   - Pipeline PASSED ✅
@@ -649,6 +649,7 @@ docker logs -f buy01-sonarqube
 **3. Jenkins Integration**
 
 In Jenkins:
+
 ```
 Manage Jenkins → System → SonarQube Servers
 - Name: SonarQube
@@ -659,6 +660,7 @@ Manage Jenkins → System → SonarQube Servers
 **4. Project Configuration**
 
 Projects auto-created during first analysis. Configuration in:
+
 - **Backend**: `pom.xml` (Maven Sonar plugin)
 - **Frontend**: `buy-01-ui/sonar-project.properties`
 
@@ -675,6 +677,7 @@ sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**
 **5. Webhook Configuration**
 
 In SonarQube:
+
 ```
 Administration → Configuration → Webhooks → Create
 - Name: Jenkins
@@ -799,11 +802,13 @@ Without webhook: ~10-15 minutes (polling every 5 seconds)
 **Key Points**:
 
 1. **Source of Code**: Jenkins analyzes LOCAL copy (not GitHub directly)
+
    - Jenkins clones code to: `/var/jenkins_home/workspace/pipeline_main/`
    - SonarQube scanners read files from this location
    - Analysis results sent to SonarQube server for storage
 
 2. **Webhook Performance**:
+
    - **Without webhook**: Jenkins polls SonarQube API every 5s → 5-10 min wait
    - **With webhook**: SonarQube pushes result immediately → < 5 sec wait
    - **Webhook log**: `Webhooks | globalWebhooks=1 | status=SUCCESS | time=64ms`
@@ -822,18 +827,21 @@ Without webhook: ~10-15 minutes (polling every 5 seconds)
 SonarQube acts as an **automated code reviewer** that:
 
 1. **Identifies Code Smells**
+
    - Duplicated code blocks
    - Complex methods (cyclomatic complexity > 10)
    - Unused variables/imports
    - Poor naming conventions
 
 2. **Detects Bugs**
+
    - Null pointer exceptions
    - Resource leaks
    - Incorrect API usage
    - Logic errors
 
 3. **Finds Security Vulnerabilities**
+
    - SQL injection risks
    - Cross-site scripting (XSS)
    - Weak encryption
@@ -860,7 +868,7 @@ Developer views issues in SonarQube UI:
     Location: ServiceRegistryApplicationTest.java:11
     Severity: Major
     Fix: Replace assert with assertNotNull()
-  
+
   - Issue 2: Public test class (S5786)
     Location: AuthenticationServiceTest.java:29
     Severity: Info
@@ -880,7 +888,7 @@ Deployment proceeds
 **Measurable Impact**:
 
 - **Before SonarQube**: No automated code quality checks
-- **After SonarQube**: 
+- **After SonarQube**:
   - 2 code quality issues identified and fixed in Build #16-18
   - 100% of new issues resolved before deployment
   - Zero security vulnerabilities deployed to production
@@ -906,11 +914,13 @@ Administration → Projects → Management
 **2. Update Existing Projects to Private**
 
 For each project:
+
 ```
 Project → Administration → Permissions → Change to "Private"
 ```
 
 Or via API:
+
 ```bash
 curl -u admin:admin123 -X POST \
   "http://localhost:9000/api/projects/update_visibility?project=safezone-ecommerce&visibility=private"
@@ -923,11 +933,11 @@ curl -u admin:admin123 -X POST \
 
 **Administration → Security → Groups**:
 
-| Group                | Permissions             | Description                |
-| -------------------- | ----------------------- | -------------------------- |
-| sonar-administrators | All (Administer System) | Full admin access          |
-| sonar-users          | Browse projects         | Authenticated users        |
-| Anyone               | None ❌                  | Unauthenticated users      |
+| Group                | Permissions             | Description           |
+| -------------------- | ----------------------- | --------------------- |
+| sonar-administrators | All (Administer System) | Full admin access     |
+| sonar-users          | Browse projects         | Authenticated users   |
+| Anyone               | None ❌                 | Unauthenticated users |
 
 **4. Create Jenkins Service Account (Best Practice)**
 
@@ -947,14 +957,14 @@ Users → jenkins → Tokens → Generate Token
 
 **5. Permission Matrix**
 
-| Permission           | Admin | Jenkins CI | Developers | Public |
-| -------------------- | ----- | ---------- | ---------- | ------ |
-| Browse Projects      | ✅     | ✅          | ✅          | ❌      |
-| Execute Analysis     | ✅     | ✅          | ❌          | ❌      |
-| Administer Projects  | ✅     | ❌          | ❌          | ❌      |
-| Administer System    | ✅     | ❌          | ❌          | ❌      |
-| Create Projects      | ✅     | ❌          | ❌          | ❌      |
-| Administer Quality   | ✅     | ❌          | ❌          | ❌      |
+| Permission          | Admin | Jenkins CI | Developers | Public |
+| ------------------- | ----- | ---------- | ---------- | ------ |
+| Browse Projects     | ✅    | ✅         | ✅         | ❌     |
+| Execute Analysis    | ✅    | ✅         | ❌         | ❌     |
+| Administer Projects | ✅    | ❌         | ❌         | ❌     |
+| Administer System   | ✅    | ❌         | ❌         | ❌     |
+| Create Projects     | ✅    | ❌         | ❌         | ❌     |
+| Administer Quality  | ✅    | ❌         | ❌         | ❌     |
 
 **Status**: ⚠️ Requires configuration - Follow steps above to secure
 
@@ -966,13 +976,13 @@ Users → jenkins → Tokens → Generate Token
 
 **Quality Profiles Used**:
 
-| Language   | Profile    | Rules Count | Description                |
-| ---------- | ---------- | ----------- | -------------------------- |
-| Java       | Sonar way  | 500+        | Default Java rules         |
-| TypeScript | Sonar way  | 300+        | Default TypeScript rules   |
-| XML        | Sonar way  | 50+         | Maven POM validation       |
-| CSS        | Sonar way  | 100+        | CSS best practices         |
-| HTML       | Sonar way  | 50+         | HTML accessibility & clean |
+| Language   | Profile   | Rules Count | Description                |
+| ---------- | --------- | ----------- | -------------------------- |
+| Java       | Sonar way | 500+        | Default Java rules         |
+| TypeScript | Sonar way | 300+        | Default TypeScript rules   |
+| XML        | Sonar way | 50+         | Maven POM validation       |
+| CSS        | Sonar way | 100+        | CSS best practices         |
+| HTML       | Sonar way | 50+         | HTML accessibility & clean |
 
 **Quality Gate Conditions**:
 
@@ -1009,14 +1019,16 @@ Coverage on New Code               | < 0%      | ⚠️  WARN
   ```
 - **Problem**: Java `assert` keyword is not a proper test assertion
 - **Fixed Code** (Commit `52f2a9c`):
+
   ```java
   import static org.junit.jupiter.api.Assertions.assertNotNull;
-  
+
   @Test
   void testApplicationExists() {
       assertNotNull(ServiceRegistryApplication.class);
   }
   ```
+
 - **Result**: ✅ Issue resolved
 
 **Issue 2: Public JUnit5 Test Class (S5786)**
@@ -1058,6 +1070,7 @@ Coverage on New Code               | < 0%      | ⚠️  WARN
 **How to Enable**:
 
 1. **Email Notifications**:
+
    ```
    Administration → Configuration → General Settings → Email
    - SMTP host: smtp.gmail.com
@@ -1082,11 +1095,13 @@ Coverage on New Code               | < 0%      | ⚠️  WARN
 - **Eclipse**: SonarLint plugin
 
 **Benefits**:
+
 - Real-time code quality feedback as you type
 - Issues highlighted directly in editor
 - Fix suggestions with one-click remediation
 
 **Installation Example (VS Code)**:
+
 ```
 Extensions → Search "SonarLint" → Install
 Settings → SonarQube Connections → Add server URL
@@ -1809,6 +1824,9 @@ curl -X POST http://localhost:8080/api/media/upload \
 
 - [@jeeeeedi](https://github.com/jeeeeedi)
 - [@oafilali](https://github.com/oafilali)
+
 # Testing deployment from main branch
+
 # Test Multibranch Pipeline deployment
+
 # Docker socket permissions fixed
