@@ -156,7 +156,7 @@ pipeline {
                         mkdir -p target/surefire-reports
                         
                         # Detect Chrome binary location
-                        export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" 2>/dev/null || echo "")
+                        export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "")
                         
                         if [ -z "$CHROME_BIN" ] || [ ! -f "$CHROME_BIN" ]; then
                             echo "❌ Error: Chrome not found! Frontend tests cannot be executed."
@@ -371,7 +371,7 @@ Action: APPROVE or REJECT
             when {
                 allOf {
                     expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
-                    // expression { env.IS_MAIN_BRANCH == "true" }  // DEPLOY ON ALL BRANCHES FOR TESTING
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only deploy from main branch
                 }
             }
             options {
@@ -435,7 +435,7 @@ Action: APPROVE or REJECT
                     # Use "docker compose" (v2) which is standard in modern Docker
                     # Exclude infrastructure services (SonarQube) from recreation during deployment
                     docker compose -f docker-compose.yml up -d \
-                        mongodb zookeeper kafka mailhog \
+                        mongodb zookeeper kafka \
                         service-registry api-gateway user-service product-service media-service frontend
                     cd ..
                 '''
