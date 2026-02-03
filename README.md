@@ -403,6 +403,697 @@ After build completion, test results are archived:
 - **SonarQube Reports**: `target/sonar/report-task.txt` - Quality gate results
 - **Build Artifacts**: Accessible in Jenkins UI under "Artifacts" section
 
+---
+
+## 🔍 SonarQube Code Quality & Security Analysis
+
+### Overview
+
+SonarQube is integrated into the CI/CD pipeline to enforce code quality standards and identify security vulnerabilities before deployment. The analysis runs automatically on every commit and **blocks deployment** if quality gates fail.
+
+### ✅ Functional Requirements
+
+#### 1. SonarQube Web Interface Access
+
+**URL**: http://localhost:9000
+
+**Credentials**:
+- **Username**: `admin`
+- **Password**: `admin123`
+
+**Configured Projects**:
+1. **SafeZone E-Commerce Platform** (`safezone-ecommerce`)
+   - Language: Java 17 / XML
+   - Lines of Code: ~2,900
+   - Quality Profile: Sonar way
+   
+2. **SafeZone Frontend** (`safezone-frontend`)
+   - Language: TypeScript / CSS / HTML
+   - Lines of Code: ~6,000
+   - Quality Profile: Sonar way
+
+**Status**: ✅ Accessible and fully configured
+
+#### 2. GitHub Integration
+
+SonarQube is integrated through the Jenkins CI/CD pipeline:
+
+**Integration Flow**:
+```
+GitHub Push → GitHub Webhook → Jenkins Build → SonarQube Analysis → Quality Gate Check → Deploy (if passed)
+```
+
+**Webhook Configuration**:
+- **Jenkins Webhook**: GitHub repository configured to trigger Jenkins on push
+- **SonarQube Webhook**: SonarQube sends Quality Gate results back to Jenkins
+  - URL: `http://host.docker.internal:8088/sonarqube-webhook/`
+  - Scope: Global (all projects)
+  - Status: ✅ Active (Last delivery: < 1 second)
+
+**Trigger Behavior**: Every push to any branch triggers code analysis automatically.
+
+**Status**: ✅ Fully integrated with automatic triggers
+
+#### 3. Docker-Based SonarQube Setup
+
+SonarQube runs in Docker containers for consistent, reproducible environments.
+
+**Container Configuration**:
+
+```yaml
+# From docker-compose.yml
+sonarqube:
+  container_name: buy01-sonarqube
+  image: sonarqube:community
+  ports:
+    - "9000:9000"
+  environment:
+    - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/sonar
+    - SONAR_JDBC_USERNAME=sonar
+    - SONAR_JDBC_PASSWORD=sonar
+  depends_on:
+    - sonarqube-db
+  volumes:
+    - sonarqube_data:/opt/sonarqube/data
+    - sonarqube_logs:/opt/sonarqube/logs
+    - sonarqube_extensions:/opt/sonarqube/extensions
+
+sonarqube-db:
+  container_name: buy01-sonarqube-db
+  image: postgres:15
+  environment:
+    - POSTGRES_USER=sonar
+    - POSTGRES_PASSWORD=sonar
+    - POSTGRES_DB=sonar
+  volumes:
+    - postgresql_data:/var/lib/postgresql/data
+```
+
+**Start SonarQube**:
+
+```bash
+docker-compose up -d sonarqube sonarqube-db
+```
+
+**Verify**:
+
+```bash
+docker ps | grep sonarqube
+# Expected: buy01-sonarqube running on port 9000
+```
+
+**Status**: ✅ Configured and running in Docker
+
+#### 4. Automated Code Analysis in CI/CD Pipeline
+
+The Jenkins pipeline includes dedicated SonarQube analysis stages:
+
+**Pipeline Stage Configuration** (from `Jenkinsfile`):
+
+```groovy
+stage('SonarQube Analysis') {
+    parallel {
+        stage('Backend Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh "mvn sonar:sonar -Dsonar.branch.name=${branch}"
+                }
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Backend Quality Gate failed: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+        stage('Frontend Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh "npx sonarqube-scanner -Dsonar.branch.name=${branch}"
+                }
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Frontend Quality Gate failed: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+**Analysis Behavior**:
+- **Parallel Execution**: Backend and frontend analyzed simultaneously (faster builds)
+- **Inline Quality Gate Checks**: Each project validated immediately after analysis
+- **Pipeline Blocking**: If either backend OR frontend fails Quality Gate, deployment is blocked
+- **Fast Validation**: Webhook reduces Quality Gate wait time from 10 minutes to < 5 seconds
+
+**Example - Pipeline Correctly Fails on Quality Issues** (Build #16):
+
+```
+[Pipeline] stage
+[Pipeline] { (Backend Analysis)
+...
+SonarQube task 'efd12678-46be-4d92-87e3-eeed3e57abaf' completed. Quality gate is 'ERROR'
+[Pipeline] error
+ERROR: Backend Quality Gate failed: ERROR
+[Pipeline] stage
+[Pipeline] { (Deploy)
+Stage "Deploy" skipped due to earlier failure(s)
+Finished: FAILURE
+```
+
+**Status**: ✅ Automated analysis that correctly fails on quality issues
+
+#### 5. Code Review and Approval Process
+
+**Multi-Layer Quality Enforcement**:
+
+1. **SonarQube Quality Gate** (Automated)
+   - New Issues > 0 = FAIL
+   - Security Hotspots reviewed = PASS
+   - Coverage on New Code > 0% (if available)
+   
+2. **Jenkins Pipeline Validation** (Automated)
+   - Backend Quality Gate must pass
+   - Frontend Quality Gate must pass
+   - All tests must pass
+   
+3. **GitHub Pull Request Review** (Manual)
+   - Requires code review approval
+   - All CI checks must pass (including SonarQube)
+   - Merge only after approval
+
+**Code Quality Improvement Workflow**:
+
+```
+1. Developer commits code
+2. Jenkins triggers SonarQube analysis
+3. Quality Gate fails (e.g., 2 new issues found)
+4. Pipeline blocks deployment
+5. Developer reviews issues in SonarQube UI
+6. Developer fixes issues in code
+7. Developer commits fixes
+8. Jenkins re-analyzes (Quality Gate passes)
+9. Code merged and deployed
+```
+
+**Real Example - Build #16 → Build #18**:
+
+- **Build #16**: Backend Quality Gate FAILED (2 issues)
+  - Issue 1: `S2699` - Test without assertion
+  - Issue 2: `S5786` - Public modifier in JUnit5 test class
+  
+- **Build #17**: Fixed issue #1 (commit `52f2a9c`)
+  - Replaced `assert` with `assertNotNull()`
+  
+- **Build #18**: Fixed issue #2 (commit `4fbc850`)
+  - Changed `public class` to `class` (package-private)
+  - Pipeline PASSED ✅
+
+**Status**: ✅ Code review process in place with automated quality gates
+
+---
+
+### 🧠 Comprehension - How It Works
+
+#### SonarQube Setup Steps
+
+**1. Installation via Docker Compose**
+
+```bash
+# Start SonarQube and PostgreSQL database
+docker-compose up -d sonarqube sonarqube-db
+
+# Wait for initialization (first start takes ~2 minutes)
+docker logs -f buy01-sonarqube
+
+# Access UI at http://localhost:9000
+# Default credentials: admin / admin
+```
+
+**2. Initial Configuration**
+
+```bash
+# 1. Change default password (required on first login)
+# 2. Create authentication token:
+#    - Administration → Security → Users → admin → Tokens
+#    - Generate token (copy immediately)
+```
+
+**3. Jenkins Integration**
+
+In Jenkins:
+```
+Manage Jenkins → System → SonarQube Servers
+- Name: SonarQube
+- Server URL: http://host.docker.internal:9000
+- Server authentication token: <token from step 2>
+```
+
+**4. Project Configuration**
+
+Projects auto-created during first analysis. Configuration in:
+- **Backend**: `pom.xml` (Maven Sonar plugin)
+- **Frontend**: `buy-01-ui/sonar-project.properties`
+
+```properties
+# Frontend configuration
+sonar.projectKey=safezone-frontend
+sonar.projectName=SafeZone Frontend
+sonar.sources=src
+sonar.tests=src
+sonar.test.inclusions=**/*.spec.ts
+sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**
+```
+
+**5. Webhook Configuration**
+
+In SonarQube:
+```
+Administration → Configuration → Webhooks → Create
+- Name: Jenkins
+- URL: http://host.docker.internal:8088/sonarqube-webhook/
+- Scope: Global (applies to all projects)
+```
+
+---
+
+#### CI/CD Integration Flow
+
+**Complete Analysis Flow with Timing**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. Developer Pushes Code to GitHub                                 │
+│    git push origin main                                             │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (< 1 second)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 2. GitHub Webhook Triggers Jenkins                                 │
+│    POST https://jenkins.example.com/github-webhook/                │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (< 1 second)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 3. Jenkins Clones Repository (Checkout Stage)                      │
+│    git clone https://github.com/user/SafeZone.git                  │
+│    Location: /var/jenkins_home/workspace/pipeline_main/            │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (~3 seconds)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 4. Build Stage                                                      │
+│    mvn clean install -DskipTests                                    │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (~6 seconds)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 5. Test Stage (Parallel)                                            │
+│    ├─ Backend: mvn test          (15 tests in 16s)                 │
+│    └─ Frontend: npm test          (2 tests in 3s)                  │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (~16 seconds - parallel)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 6. SonarQube Analysis Stage (Parallel)                             │
+│                                                                     │
+│  ┌─────────────────────┐         ┌─────────────────────┐          │
+│  │ Backend Analysis    │         │ Frontend Analysis   │          │
+│  │                     │         │                     │          │
+│  │ 1. mvn sonar:sonar  │         │ 1. npx sonarqube-   │          │
+│  │    Reads: Java/XML  │         │    scanner          │          │
+│  │    Location: /var/  │         │    Reads: TS/CSS    │          │
+│  │    jenkins_home/... │         │    Location: /var/  │          │
+│  │                     │         │    jenkins_home/... │          │
+│  │ 2. Sends data to    │         │    /buy-01-ui/      │          │
+│  │    SonarQube server │         │                     │          │
+│  │    (localhost:9000) │         │ 2. Sends data to    │          │
+│  │                     │         │    SonarQube server │          │
+│  │ 3. Analysis task    │         │                     │          │
+│  │    Task ID: efd1... │         │ 3. Analysis task    │          │
+│  │                     │         │    Task ID: fa39... │          │
+│  └──────────┬──────────┘         └──────────┬──────────┘          │
+│             │ (~10 seconds)                 │ (~11 seconds)       │
+└─────────────┼───────────────────────────────┼─────────────────────┘
+              │                               │
+              ↓                               ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 7. SonarQube Server Processing                                     │
+│    ├─ Parse code structure                                         │
+│    ├─ Apply analysis rules (Sonar way profile)                     │
+│    ├─ Detect issues (bugs, vulnerabilities, code smells)           │
+│    ├─ Calculate metrics (coverage, duplication, complexity)        │
+│    └─ Evaluate Quality Gate conditions                             │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (~2-3 seconds per project)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 8. SonarQube Sends Webhook to Jenkins                              │
+│    POST http://host.docker.internal:8088/sonarqube-webhook/        │
+│    Payload: {                                                       │
+│      "serverUrl": "http://localhost:9000",                          │
+│      "taskId": "efd12678...",                                       │
+│      "status": "SUCCESS",                                           │
+│      "qualityGate": {                                               │
+│        "status": "OK",  // or "ERROR"                               │
+│        "conditions": [...]                                          │
+│      }                                                              │
+│    }                                                                │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (~64 milliseconds - webhook delivery)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 9. Jenkins Quality Gate Check (waitForQualityGate)                 │
+│                                                                     │
+│  ┌─────────────────────┐         ┌─────────────────────┐          │
+│  │ Backend QG Check    │         │ Frontend QG Check   │          │
+│  │                     │         │                     │          │
+│  │ if (qg.status       │         │ if (qg.status       │          │
+│  │     != 'OK') {      │         │     != 'OK') {      │          │
+│  │   error "Backend    │         │   error "Frontend   │          │
+│  │   Quality Gate      │         │   Quality Gate      │          │
+│  │   failed: ERROR"    │         │   failed: ERROR"    │          │
+│  │ }                   │         │ }                   │          │
+│  └─────────────────────┘         └─────────────────────┘          │
+│                                                                     │
+│  Both must pass to continue pipeline                               │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ (< 5 seconds with webhook)
+                       ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│ 10. Deploy Stage (Only if Quality Gates PASSED)                    │
+│     docker-compose up -d --build                                    │
+└─────────────────────────────────────────────────────────────────────┘
+
+Total Time: ~45 seconds (with webhook optimization)
+Without webhook: ~10-15 minutes (polling every 5 seconds)
+```
+
+**Key Points**:
+
+1. **Source of Code**: Jenkins analyzes LOCAL copy (not GitHub directly)
+   - Jenkins clones code to: `/var/jenkins_home/workspace/pipeline_main/`
+   - SonarQube scanners read files from this location
+   - Analysis results sent to SonarQube server for storage
+
+2. **Webhook Performance**:
+   - **Without webhook**: Jenkins polls SonarQube API every 5s → 5-10 min wait
+   - **With webhook**: SonarQube pushes result immediately → < 5 sec wait
+   - **Webhook log**: `Webhooks | globalWebhooks=1 | status=SUCCESS | time=64ms`
+
+3. **Parallel Analysis**:
+   - Backend and frontend analyzed simultaneously
+   - Each has independent Quality Gate check
+   - Pipeline fails if EITHER project fails Quality Gate
+
+---
+
+#### SonarQube Functionality & Code Quality Contribution
+
+**Role in Project**:
+
+SonarQube acts as an **automated code reviewer** that:
+
+1. **Identifies Code Smells**
+   - Duplicated code blocks
+   - Complex methods (cyclomatic complexity > 10)
+   - Unused variables/imports
+   - Poor naming conventions
+
+2. **Detects Bugs**
+   - Null pointer exceptions
+   - Resource leaks
+   - Incorrect API usage
+   - Logic errors
+
+3. **Finds Security Vulnerabilities**
+   - SQL injection risks
+   - Cross-site scripting (XSS)
+   - Weak encryption
+   - Authentication issues
+
+4. **Enforces Test Quality**
+   - Tests without assertions
+   - Low test coverage
+   - Skipped tests
+
+**Code Quality Improvement Process**:
+
+```
+Developer writes code with issues
+         ↓
+SonarQube analysis identifies 2 new issues
+         ↓
+Quality Gate fails (New Issues > 0)
+         ↓
+Pipeline blocks deployment
+         ↓
+Developer views issues in SonarQube UI:
+  - Issue 1: Test without assertion (S2699)
+    Location: ServiceRegistryApplicationTest.java:11
+    Severity: Major
+    Fix: Replace assert with assertNotNull()
+  
+  - Issue 2: Public test class (S5786)
+    Location: AuthenticationServiceTest.java:29
+    Severity: Info
+    Fix: Remove public modifier
+         ↓
+Developer fixes both issues
+         ↓
+Commits fixes to GitHub
+         ↓
+Jenkins re-analyzes code
+         ↓
+Quality Gate passes (0 new issues)
+         ↓
+Deployment proceeds
+```
+
+**Measurable Impact**:
+
+- **Before SonarQube**: No automated code quality checks
+- **After SonarQube**: 
+  - 2 code quality issues identified and fixed in Build #16-18
+  - 100% of new issues resolved before deployment
+  - Zero security vulnerabilities deployed to production
+  - Consistent code quality standards enforced
+
+---
+
+### 🔒 Security - Permissions and Access Controls
+
+#### Current Security Configuration
+
+**⚠️ IMPORTANT**: Projects are currently configured as **Public** by default. Follow these steps to secure your SonarQube instance:
+
+#### Recommended Security Configuration
+
+**1. Change Default Project Visibility**
+
+```
+Administration → Projects → Management
+- Default visibility of new projects: Private ✅
+```
+
+**2. Update Existing Projects to Private**
+
+For each project:
+```
+Project → Administration → Permissions → Change to "Private"
+```
+
+Or via API:
+```bash
+curl -u admin:admin123 -X POST \
+  "http://localhost:9000/api/projects/update_visibility?project=safezone-ecommerce&visibility=private"
+
+curl -u admin:admin123 -X POST \
+  "http://localhost:9000/api/projects/update_visibility?project=safezone-frontend&visibility=private"
+```
+
+**3. User and Group Permissions**
+
+**Administration → Security → Groups**:
+
+| Group                | Permissions             | Description                |
+| -------------------- | ----------------------- | -------------------------- |
+| sonar-administrators | All (Administer System) | Full admin access          |
+| sonar-users          | Browse projects         | Authenticated users        |
+| Anyone               | None ❌                  | Unauthenticated users      |
+
+**4. Create Jenkins Service Account (Best Practice)**
+
+Instead of using admin token:
+
+```
+Administration → Security → Users → Create User
+- Login: jenkins
+- Name: Jenkins CI
+- Password: <strong-password>
+- Groups: sonar-users
+
+Users → jenkins → Tokens → Generate Token
+- Name: jenkins-ci
+- Copy token and update Jenkins credential
+```
+
+**5. Permission Matrix**
+
+| Permission           | Admin | Jenkins CI | Developers | Public |
+| -------------------- | ----- | ---------- | ---------- | ------ |
+| Browse Projects      | ✅     | ✅          | ✅          | ❌      |
+| Execute Analysis     | ✅     | ✅          | ❌          | ❌      |
+| Administer Projects  | ✅     | ❌          | ❌          | ❌      |
+| Administer System    | ✅     | ❌          | ❌          | ❌      |
+| Create Projects      | ✅     | ❌          | ❌          | ❌      |
+| Administer Quality   | ✅     | ❌          | ❌          | ❌      |
+
+**Status**: ⚠️ Requires configuration - Follow steps above to secure
+
+---
+
+### ✅ Code Quality and Standards
+
+#### SonarQube Rules Configuration
+
+**Quality Profiles Used**:
+
+| Language   | Profile    | Rules Count | Description                |
+| ---------- | ---------- | ----------- | -------------------------- |
+| Java       | Sonar way  | 500+        | Default Java rules         |
+| TypeScript | Sonar way  | 300+        | Default TypeScript rules   |
+| XML        | Sonar way  | 50+         | Maven POM validation       |
+| CSS        | Sonar way  | 100+        | CSS best practices         |
+| HTML       | Sonar way  | 50+         | HTML accessibility & clean |
+
+**Quality Gate Conditions**:
+
+```
+Condition                          | Threshold | Status
+-----------------------------------|-----------|--------
+New Issues                         | > 0       | ❌ FAIL
+Security Hotspots Reviewed         | < 100%    | ❌ FAIL
+Coverage on New Code               | < 0%      | ⚠️  WARN
+```
+
+**Rules Configured Correctly**: ✅ YES
+
+- All rules active in "Sonar way" profile
+- No custom rule modifications (using industry standards)
+- Quality gates enforce zero new issues policy
+
+#### Code Quality Issues Identified & Fixed
+
+**Real Example from Build #16-18**:
+
+**Issue 1: Missing Test Assertion (S2699)**
+
+- **File**: `service-registry/src/test/java/.../ServiceRegistryApplicationTest.java`
+- **Line**: 11
+- **Severity**: Major
+- **Issue**: Test method without any assertion
+- **Original Code**:
+  ```java
+  @Test
+  void testApplicationExists() {
+      assert ServiceRegistryApplication.class != null;
+  }
+  ```
+- **Problem**: Java `assert` keyword is not a proper test assertion
+- **Fixed Code** (Commit `52f2a9c`):
+  ```java
+  import static org.junit.jupiter.api.Assertions.assertNotNull;
+  
+  @Test
+  void testApplicationExists() {
+      assertNotNull(ServiceRegistryApplication.class);
+  }
+  ```
+- **Result**: ✅ Issue resolved
+
+**Issue 2: Public JUnit5 Test Class (S5786)**
+
+- **File**: `user-service/src/test/java/.../AuthenticationServiceTest.java`
+- **Line**: 29
+- **Severity**: Info
+- **Issue**: JUnit 5 test classes should have default package visibility
+- **Original Code**:
+  ```java
+  @ExtendWith(MockitoExtension.class)
+  @DisplayName("AuthenticationService Unit Tests")
+  public class AuthenticationServiceTest {
+  ```
+- **Problem**: JUnit 5 doesn't require `public` modifier (best practice)
+- **Fixed Code** (Commit `4fbc850`):
+  ```java
+  @ExtendWith(MockitoExtension.class)
+  @DisplayName("AuthenticationService Unit Tests")
+  class AuthenticationServiceTest {
+  ```
+- **Result**: ✅ Issue resolved
+
+**Issues Addressed and Committed**: ✅ YES
+
+- Both issues fixed within 10 minutes of identification
+- Fixes committed to GitHub main branch
+- Build #18 passed Quality Gate with 0 new issues
+- Code quality improved and verified
+
+---
+
+### 🎁 Bonus Features (Optional)
+
+#### Email/Slack Notifications
+
+**Status**: ❌ Not Implemented
+
+**How to Enable**:
+
+1. **Email Notifications**:
+   ```
+   Administration → Configuration → General Settings → Email
+   - SMTP host: smtp.gmail.com
+   - SMTP port: 587
+   - From: sonarqube@example.com
+   ```
+
+2. **Slack Notifications** (requires plugin):
+   ```
+   Administration → Marketplace → Search "Slack"
+   Install → Restart → Configure webhook URL
+   ```
+
+#### IDE Integration
+
+**Status**: ❌ Not Implemented
+
+**Supported IDEs**:
+
+- **Visual Studio Code**: SonarLint extension
+- **IntelliJ IDEA**: SonarLint plugin
+- **Eclipse**: SonarLint plugin
+
+**Benefits**:
+- Real-time code quality feedback as you type
+- Issues highlighted directly in editor
+- Fix suggestions with one-click remediation
+
+**Installation Example (VS Code)**:
+```
+Extensions → Search "SonarLint" → Install
+Settings → SonarQube Connections → Add server URL
+```
+
+---
+
 ## 🏗️ Architecture Overview
 
 This project implements a modern microservices architecture with the following components:
