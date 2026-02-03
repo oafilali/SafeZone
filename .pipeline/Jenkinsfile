@@ -80,12 +80,7 @@ pipeline {
         
         stage('Deploy') {
             when {
-                expression { 
-                    return sh(
-                        script: 'git rev-parse --abbrev-ref HEAD',
-                        returnStdout: true
-                    ).trim() == 'main'
-                }
+                branch 'main'
             }
             steps {
                 sh "${JENKINS_SCRIPTS}/build-docker-images.sh ${BUILD_NUMBER}"
