@@ -6,7 +6,7 @@
 ![Security](https://img.shields.io/badge/security-100%25-success)
 ![Tests](https://img.shields.io/badge/tests-passing-success)
 
-> ✅ **Docker socket permissions fixed** - Jenkins can now build and deploy Docker images without permission errors----
+> ✅ **Docker socket permissions fixed** - Jenkins can now build and deploy Docker images without permission errors-------
 
 ## 🎯 Quick Start
 
