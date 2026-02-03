@@ -55,6 +55,7 @@ pipeline {
                     steps {
                         dir('buy-01-ui') {
                             sh '''
+                                npm install --legacy-peer-deps
                                 export CHROME_BIN=$(which chromium || which chromium-browser || echo "/usr/bin/chromium")
                                 npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
                             '''
