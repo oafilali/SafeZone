@@ -1120,3 +1120,4 @@ curl -X POST http://localhost:8080/api/media/upload \
 - [@oafilali](https://github.com/oafilali)
 # Testing deployment from main branch
 # Test Multibranch Pipeline deployment
+# Docker socket permissions fixed
