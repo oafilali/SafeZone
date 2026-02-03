@@ -7,19 +7,6 @@ set -e
 
 BUILD_NUMBER=${1:?'BUILD_NUMBER is required. Usage: build-docker-images.sh <BUILD_NUMBER>'}
 
-# Fix Docker socket permissions if needed
-if [ -S /var/run/docker.sock ]; then
-    # Check if we can access the socket
-    if ! docker ps &>/dev/null; then
-        echo "⚠️  Docker socket permission issue detected, attempting to fix..."
-        sudo chmod g+rw /var/run/docker.sock 2>/dev/null || {
-            echo "⚠️  Could not fix with sudo, trying direct access..."
-            # The jenkins user should already be in docker group from Dockerfile
-            # If not, the docker daemon must provide access
-        }
-    fi
-fi
-
 echo "Building Docker images with build #${BUILD_NUMBER}..."
 
 # Build backend services with build number tags
