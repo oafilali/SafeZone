@@ -403,7 +403,7 @@ After build completion, test results are archived:
 - **SonarQube Reports**: `target/sonar/report-task.txt` - Quality gate results
 - **Build Artifacts**: Accessible in Jenkins UI under "Artifacts" section
 
----
+--------
 
 ## 🔍 SonarQube Code Quality & Security Analysis
 
