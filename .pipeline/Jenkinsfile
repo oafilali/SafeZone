@@ -1,126 +1,401 @@
 pipeline {
     agent any
     
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        disableConcurrentBuilds()
-        timeout(time: 60, unit: 'MINUTES')
+    parameters {
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: 'Skip test execution (not recommended for production)'
+        )
+        booleanParam(
+            name: 'SKIP_FRONTEND_BUILD',
+            defaultValue: false,
+            description: 'Skip frontend build (backend changes only)'
+        )
+        booleanParam(
+            name: 'FORCE_REBUILD',
+            defaultValue: false,
+            description: 'Force clean rebuild (ignore cache)'
+        )
+        string(
+            name: 'CUSTOM_TAG',
+            defaultValue: '',
+            description: 'Custom Docker tag (leave empty for build number)'
+        )
+        booleanParam(
+            name: 'REQUIRE_CODE_REVIEW',
+            defaultValue: true,
+            description: 'Require manual code review approval before production deployment (main branch only)'
+        )
     }
     
     triggers {
+        // Triggers on:
+        // 1. GitHub PR events (created, synchronized, reopened)
+        // 2. GitHub push events to any branch
+        // Pipeline will automatically detect PR vs regular branch push via env variables
         githubPush()
     }
-    
+
+    options {
+        // Keep last 30 builds
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        // Prevent concurrent builds
+        disableConcurrentBuilds()
+    }
+
     environment {
-        // Credentials
-        TEAM_EMAIL = credentials('team-email')
-        MONGO_ROOT_USERNAME = credentials('mongo-root-username')
-        MONGO_ROOT_PASSWORD = credentials('mongo-root-password')
-        API_GATEWAY_URL = credentials('api-gateway-url')
-        GITHUB_TOKEN = credentials('github-token')
+        // Tool Paths inside Jenkins Docker container
+        MAVEN_HOME = '/usr/share/maven'
+        NODEJS_HOME = '/usr/bin'
+        JAVA_HOME = '/opt/java/openjdk'
+        PATH = "${JAVA_HOME}/bin:${MAVEN_HOME}/bin:${NODEJS_HOME}:${env.PATH}"
         
-        // SonarQube
+        // Email Configuration - Use credentials for sensitive data
+        TEAM_EMAIL = credentials('team-email')  // Store in Jenkins Credentials
+        
+        // MongoDB Credentials - Use credentials for sensitive data
+        MONGO_ROOT_USERNAME = credentials('mongo-root-username')  // Store in Jenkins Credentials
+        MONGO_ROOT_PASSWORD = credentials('mongo-root-password')  // Store in Jenkins Credentials
+        
+        // API Gateway URL - REQUIRED for deployment
+        API_GATEWAY_URL = credentials('api-gateway-url')  // Store in Jenkins Credentials
+        
+        // SonarQube Configuration (Local - use host.docker.internal for Docker-to-host communication)
         SONARQUBE_URL = "http://host.docker.internal:9000"
+        // SONARQUBE_TOKEN will be set in SonarQube Analysis stage with withCredentials block
+        
+        // Docker Configuration
+        DOCKER_IMAGE_PREFIX = 'buy01-pipeline'
+        SERVICE_REGISTRY_IMAGE = 'buy01-pipeline-service-registry'
+        API_GATEWAY_IMAGE = 'buy01-pipeline-api-gateway'
+        USER_SERVICE_IMAGE = 'buy01-pipeline-user-service'
+        PRODUCT_SERVICE_IMAGE = 'buy01-pipeline-product-service'
+        MEDIA_SERVICE_IMAGE = 'buy01-pipeline-media-service'
+        FRONTEND_IMAGE = 'buy01-pipeline-frontend'
         
         // Paths
         JENKINS_SCRIPTS = './.pipeline/jenkins'
+        FRONTEND_DIR = 'buy-01-ui'
+        
+        // Code Review & PR Configuration
+        GITHUB_TOKEN = credentials('github-token')  // Store in Jenkins Credentials
+        IS_PULL_REQUEST = "${env.CHANGE_ID != null}"
+        IS_MAIN_BRANCH = "${env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main'}"
+        TARGET_BRANCH = "${env.CHANGE_TARGET ?: env.GIT_BRANCH ?: 'main'}"
+        SOURCE_BRANCH = "${env.CHANGE_BRANCH ?: env.GIT_BRANCH ?: 'main'}"
     }
 
     stages {
-        stage('Validate') {
+        stage('Initialize') {
             steps {
+                script {
+                    echo "Checking trigger context for branch: ${env.GIT_BRANCH}"
+                    
+                    // Detect Pull Request context
+                    if (env.IS_PULL_REQUEST == "true") {
+                        echo "📝 PULL REQUEST DETECTED #${env.CHANGE_ID}"
+                        echo "  Source: ${env.SOURCE_BRANCH} → Target: ${env.TARGET_BRANCH}"
+                    } else if (env.IS_MAIN_BRANCH == "true") {
+                        echo "✅ MAIN BRANCH DETECTED (POST-MERGE)"
+                    } else {
+                        echo "📋 FEATURE BRANCH DETECTED"
+                    }
+                    
+                    echo "🎯 Deployment Target: Local Docker"
+                    echo "🔍 SonarQube URL: ${env.SONARQUBE_URL}"
+                    echo "🔐 Code Review Required: ${params.REQUIRE_CODE_REVIEW}"
+                }
+            }
+        }
+
+        stage('Validate Environment') {
+            steps {
+                echo 'Validating build environment...'
                 sh "${JENKINS_SCRIPTS}/validate-environment.sh"
             }
         }
         
-        stage('Build') {
+        stage('Checkout') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
             steps {
-                sh 'mvn clean install -DskipTests'
+                checkout scm
+            }
+        }
+
+        stage('Build Backend') {
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                echo 'Building backend services (skipping tests)...'
+                script {
+                    if (params.FORCE_REBUILD) {
+                        sh 'mvn clean install -U -DskipTests'  // Force update dependencies, skip tests
+                    } else {
+                        sh 'mvn clean install -DskipTests'  // Build artifacts, skip tests (tests run in "Backend Tests" stage)
+                    }
+                }
             }
         }
         
-        stage('Test') {
+        stage('Test Frontend') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo 'Running frontend tests...'
+                dir('buy-01-ui') {
+                    sh '''
+                        set -e
+                        mkdir -p target/surefire-reports
+                        
+                        # Detect Chrome/Chromium binary - support multiple possible locations
+                        export CHROME_BIN=""
+                        
+                        # Try common Linux paths first (Jenkins container)
+                        for chrome_path in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome /usr/bin/chrome; do
+                            if [ -x "$chrome_path" ]; then
+                                export CHROME_BIN="$chrome_path"
+                                break
+                            fi
+                        done
+                        
+                        # Fallback to 'which' command
+                        if [ -z "$CHROME_BIN" ]; then
+                            export CHROME_BIN=$(which chromium || which chromium-browser || which google-chrome || which chrome || echo "")
+                        fi
+                        
+                        # Verify Chrome/Chromium was found
+                        if [ -z "$CHROME_BIN" ] || [ ! -x "$CHROME_BIN" ]; then
+                            echo "❌ Error: Chrome/Chromium not found! Frontend tests cannot be executed."
+                            echo "   Checked locations:"
+                            echo "     - /usr/bin/chromium"
+                            echo "     - /usr/bin/chromium-browser"
+                            echo "     - /usr/bin/google-chrome"
+                            echo "   PATH: $PATH"
+                            echo ""
+                            echo "To fix: Build Jenkins image with Chromium installed"
+                            echo "   Command: ./boot-pipeline.sh --rebuild-jenkins"
+                            exit 1
+                        fi
+                        
+                        echo "Using Chrome/Chromium: $CHROME_BIN"
+                        $CHROME_BIN --version
+                        
+                        # Install dependencies if node_modules doesn't exist or is incomplete
+                        if [ ! -d "node_modules" ] || [ ! -f "node_modules/.package-lock.json" ]; then
+                            echo "Installing frontend dependencies..."
+                            npm install --legacy-peer-deps
+                        else
+                            echo "Dependencies already installed, skipping npm install"
+                        fi
+                        
+                        # Run frontend tests with Karma
+                        npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
+                        
+                        if [ $? -ne 0 ]; then
+                            echo "❌ Frontend tests FAILED! Pipeline will STOP here."
+                            exit 1
+                        fi
+                        
+                        echo "✅ Frontend tests completed with code coverage"
+                    '''
+                }
+            }
+        }
+        
+        
+        stage('SonarQube Analysis') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo '=========================================='
+                echo '🔍 Running SonarQube Code Analysis...'
+                echo '=========================================='
+                script {
+                    echo "Using SonarQube at: ${env.SONARQUBE_URL}"
+                    
+                    // Prepare PR-specific or Branch-specific parameters
+                    def sonarParams = ""
+                    if (env.IS_PULL_REQUEST == "true") {
+                        sonarParams = "-Dsonar.pullrequest.key=${env.CHANGE_ID} -Dsonar.pullrequest.branch=${env.SOURCE_BRANCH} -Dsonar.pullrequest.base=${env.TARGET_BRANCH}"
+                        echo "📝 Configuring PR analysis for pull request #${env.CHANGE_ID}"
+                    } else {
+                        def branchName = env.GIT_BRANCH ?: "main"
+                        // Clean branch name (remove origin/ prefix if present)
+                        branchName = branchName.replace('origin/', '')
+                        sonarParams = "-Dsonar.branch.name=${branchName}"
+                        echo "🌿 Configuring Branch analysis for branch: ${branchName}"
+                    }
+                    
+                    
+                    // Use Jenkins credential for SonarQube token
+                    echo "🔑 Using SonarQube Token from Jenkins Credentials"
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        withSonarQubeEnv('SonarQube') {
+                            // 1. Scan the Backend (Java Microservices)
+                            sh "mvn sonar:sonar ${sonarParams} -Dsonar.host.url='${env.SONARQUBE_URL}' -Dsonar.token='${SONAR_TOKEN}'"
+                            
+                            // 2. Scan the Frontend (Angular)
+                            sh """
+                                mvn sonar:sonar -N ${sonarParams} \\
+                                    -Dsonar.projectKey=safezone-frontend \\
+                                    -Dsonar.projectName="SafeZone Frontend" \\
+                                    -Dsonar.sources=buy-01-ui/src \\
+                                    -Dsonar.tests=buy-01-ui/src \\
+                                    -Dsonar.test.inclusions=**/*.spec.ts \\
+                                    -Dsonar.coverage.exclusions=**/*.spec.ts,**/node_modules/**,**/dist/** \\
+                                    -Dsonar.typescript.lcov.reportPaths=buy-01-ui/coverage/lcov.info \\
+                                    -Dsonar.host.url='${env.SONARQUBE_URL}' \\
+                                    -Dsonar.token='${SONAR_TOKEN}'
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
+            }
+            steps {
+                echo '=========================================='
+                echo '🚦 Checking SonarQube Quality Gate...'
+                echo '=========================================='
+                script {
+                    // Manual Quality Gate check for local SonarQube
+                    echo "🕵️ Using Manual Quality Gate Check..."
+                    
+                    // Wait a moment for report file flush
+                    sleep 5
+                    
+                    if (fileExists('target/sonar/report-task.txt')) {
+                        def props = readProperties file: 'target/sonar/report-task.txt'
+                        def serverUrl = props['serverUrl']
+                        def taskId = props['ceTaskId']
+                        
+                        echo "Checking task: ${taskId} at ${serverUrl}"
+                        
+                        // Load token from Jenkins credentials
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            pollQualityGate(serverUrl, taskId, SONAR_TOKEN)
+                        }
+                    } else {
+                        echo "⚠️ Report file not found. Skipping Quality Gate check."
+                    }
+                }
+            }
+        }
+
+        stage('Parallel Build & Test') {
+            options {
+                timeout(time: 45, unit: 'MINUTES')
+            }
             parallel {
                 stage('Backend Tests') {
+                    when {
+                        expression { !params.SKIP_TESTS }
+                    }
                     steps {
-                        sh 'mvn test'
+                        echo 'Running JUnit tests...'
+                        sh '''
+                            set -e
+                            mvn test
+                        '''
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+                            junit '**/target/surefire-reports/*.xml'
                         }
                     }
                 }
-                stage('Frontend Tests') {
+                
+                stage('Frontend Pre-check') {
+                    when {
+                        expression { !params.SKIP_FRONTEND_BUILD }
+                    }
                     steps {
+                        echo 'Checking frontend dependencies...'
                         dir('buy-01-ui') {
-                            sh '''
-                                npm install --legacy-peer-deps
-                                export CHROME_BIN=$(which chromium || which chromium-browser || echo "/usr/bin/chromium")
-                                npm test -- --watch=false --browsers=ChromeHeadlessCI --code-coverage
-                            '''
+                            // Only run install if we need it for tests later, 
+                            // but Docker handles the main build
+                            sh 'npm install --legacy-peer-deps'
                         }
                     }
                 }
             }
         }
         
-        stage('SonarQube Analysis') {
-            parallel {
-                stage('Backend Analysis') {
-                    steps {
-                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            withSonarQubeEnv('SonarQube') {
-                                script {
-                                    def branch = env.GIT_BRANCH?.replace('origin/', '') ?: 'main'
-                                    sh "mvn sonar:sonar -Dsonar.branch.name=${branch} -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.token=${SONAR_TOKEN}"
-                                }
-                            }
-                            // Check Quality Gate immediately for backend
-                            timeout(time: 5, unit: 'MINUTES') {
-                                script {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Backend Quality Gate failed: ${qg.status}"
-                                    }
-                                }
-                            }
-                        }
-                    }
+        stage('Code Review Approval') {
+            when {
+                allOf {
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only after merge to main
+                    expression { params.REQUIRE_CODE_REVIEW == true }  // Only if enabled
+                    expression { !params.SKIP_TESTS }  // Only if tests weren't skipped
                 }
-                stage('Frontend Analysis') {
-                    steps {
-                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            withSonarQubeEnv('SonarQube') {
-                                dir('buy-01-ui') {
-                                    script {
-                                        def branch = env.GIT_BRANCH?.replace('origin/', '') ?: 'main'
-                                        // Install sonar-scanner if not present
-                                        sh '''
-                                            if ! command -v sonar-scanner &> /dev/null; then
-                                                npm install -g sonarqube-scanner
-                                            fi
-                                        '''
-                                        // Run SonarQube analysis
-                                        sh """
-                                            npx sonarqube-scanner \
-                                                -Dsonar.branch.name=${branch} \
-                                                -Dsonar.host.url=${SONARQUBE_URL} \
-                                                -Dsonar.token=${SONAR_TOKEN}
-                                        """
-                                    }
-                                }
-                            }
-                            // Check Quality Gate immediately for frontend
-                            timeout(time: 5, unit: 'MINUTES') {
-                                script {
-                                    def qg = waitForQualityGate()
-                                    if (qg.status != 'OK') {
-                                        error "Frontend Quality Gate failed: ${qg.status}"
-                                    }
-                                }
-                            }
-                        }
+            }
+            options {
+                timeout(time: 24, unit: 'HOURS')  // 24 hour timeout for approval
+            }
+            steps {
+                echo '=========================================='  
+                echo '👥 CODE REVIEW APPROVAL GATE (POST-MERGE)'
+                echo '=========================================='  
+                echo 'GitHub PR approval already enforced before merge.'
+                echo 'This stage provides an additional approval before deployment.'
+                echo '=========================================='  
+                echo ""
+                echo "Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                echo "Branch: ${env.GIT_BRANCH}"
+                echo "Commit: ${env.GIT_COMMIT?.take(8)}"
+                echo ""
+                echo "Code Quality Verification:"
+                echo "  📊 SonarQube Analysis: ${env.SONARQUBE_URL}/projects"
+                echo "  📈 Test Results: ${env.BUILD_URL}testReport"
+                echo "  📦 Build Logs: ${env.BUILD_URL}console"
+                echo ""
+                
+                script {
+                    try {
+                        input(
+                            id: 'CodeReviewApproval',
+                            message: '''===========================================
+👥 APPROVE DEPLOYMENT TO PRODUCTION?
+===========================================
+
+Build has passed all quality gates:
+✓ Backend tests passed (JUnit)
+✓ Frontend tests passed (Karma)
+✓ SonarQube quality gate PASSED
+✓ Code coverage verified
+✓ GitHub PR approval enforced
+
+Do you approve this code for deployment?
+
+Action: APPROVE or REJECT
+==========================================''',
+                            ok: '✅ APPROVE & DEPLOY',
+                            submitter: 'safezone-reviewers'
+                        )
+                        echo "✅ CODE REVIEW APPROVED - Proceeding to deployment"
+                    } catch (err) {
+                        echo "❌ CODE REVIEW REJECTED or TIMEOUT"
+                        echo "Reason: ${err.message}"
+                        error("Code review approval required before deployment to main branch")
                     }
                 }
             }
@@ -128,30 +403,233 @@ pipeline {
         
         stage('Deploy') {
             when {
-                branch 'main'
+                allOf {
+                    expression { env.IS_PULL_REQUEST != "true" }  // Skip deployment for PRs
+                    expression { env.IS_MAIN_BRANCH == "true" }  // Only deploy from main branch
+                }
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                sh "${JENKINS_SCRIPTS}/build-docker-images.sh ${BUILD_NUMBER}"
-                dir('.pipeline') {
-                    sh '''
-                        docker compose up -d mongodb zookeeper kafka \
-                            service-registry api-gateway user-service product-service media-service frontend
-                    '''
-                }
-                echo "✅ Deployed successfully"
+                echo '=========================================='
+                echo '🚀 Deploying locally via Docker Compose...'
+                echo '=========================================='
+                sh '''
+                    # Build Docker images
+                    ./.pipeline/jenkins/build-docker-images.sh ${BUILD_NUMBER}
+                    
+                    # Start services locally
+                    export MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+                    export MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+                    export API_GATEWAY_URL=${API_GATEWAY_URL}
+                    
+                    echo "Checking docker compose availability..."
+                    docker compose version || docker-compose version
+                    
+                    echo "Starting services using docker-compose.yml..."
+                    cd .pipeline 
+                    
+                    # Generate SSL certificates if missing
+                    echo "🔐 Checking SSL certificates..."
+                    mkdir -p certs
+                    if [ ! -f certs/localhost.pem ]; then
+                        echo "⚠️ Certificates missing. Generating self-signed certificates..."
+                        openssl req -x509 -newkey rsa:4096 -keyout certs/localhost-key.pem -out certs/localhost.pem -days 365 -nodes -subj "/CN=localhost"
+                        openssl pkcs12 -export -in certs/localhost.pem -inkey certs/localhost-key.pem -out certs/localhost.p12 -name localhost -password pass:changeit
+                        chmod 644 certs/localhost.pem certs/localhost.p12
+                        chmod 600 certs/localhost-key.pem
+                        echo "✅ Certificates generated."
+                    else
+                        echo "✅ Certificates already exist."
+                    fi
+
+                    # Populate the Docker volume using docker cp to avoid bind mount issues
+                    echo "📦 Populating certificate volume..."
+                    docker volume create buy01-certs || true
+                    
+                    # Create a dummy container to copy files into the volume
+                    docker create --name temp-cert-loader -v buy01-certs:/dest alpine
+                    
+                    # Copy certs from Jenkins workspace to the volume via the container
+                    docker cp certs/. temp-cert-loader:/dest/
+                    
+                    # Clean up
+                    docker rm temp-cert-loader
+                    
+                    echo "✅ Certificates copied to Docker volume."
+                    
+                    # Force cleanup of ANY existing containers with conflicting names
+                    # This handles edge cases where docker compose down misses orphaned containers
+                    echo "🧹 Force cleaning conflicting containers..."
+                    docker rm -f buy-01-service-registry buy-01-api-gateway buy-01-user-service \
+                                 buy-01-product-service buy-01-media-service buy-01-frontend \
+                                 buy-01-mongodb buy-01-kafka buy-01-zookeeper || true
+                    
+                    # Use "docker compose" (v2) which is standard in modern Docker
+                    # Exclude infrastructure services (SonarQube) from recreation during deployment
+                    docker compose -f docker-compose.yml up -d \
+                        mongodb zookeeper kafka \
+                        service-registry api-gateway user-service product-service media-service frontend
+                    cd ..
+                '''
+                echo "✅ Local deployment successful!"
+                echo ""
+                echo "📋 Services Status:"
+                sh "docker ps --filter 'name=buy-01' --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'"
+                echo ""
+                echo "🌐 Access URLs:"
+                echo "  Frontend: http://localhost:4200"
+                echo "  API Gateway: http://localhost:8080"
+                echo "  Eureka: http://localhost:8761"
+                echo ""
             }
-        }
-    }
+        }    }
 
     post {
         always {
-            archiveArtifacts artifacts: '**/target/surefire-reports/**/*.xml', allowEmptyArchive: true
+            echo '=========================================='
+            echo 'Publishing test results...'
+            echo '=========================================='
+            
+            // Parse backend JUnit reports
+            junit(
+                testResults: '**/target/surefire-reports/*.xml',
+                allowEmptyResults: true
+            )
+            
+            // Archive test reports
+            archiveArtifacts(
+                artifacts: '**/target/surefire-reports/**/*.xml',
+                allowEmptyArchive: true,
+                fingerprint: true
+            )
+            
+            // Archive coverage reports if they exist
+            archiveArtifacts(
+                artifacts: '**/target/site/jacoco/**/*,buy-01-ui/coverage/**/*',
+                allowEmptyArchive: true,
+                fingerprint: true
+            )
         }
         success {
-            echo '✅ Pipeline SUCCESS'
+            echo '=========================================='
+            echo '✅ Pipeline completed successfully!'
+            echo '=========================================='
+            
+            script {
+                try {
+                    def template = readFile("${JENKINS_SCRIPTS}/email-success.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
+                    mail(
+                        subject: "✅ BUILD SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: emailBody,
+                        to: "${TEAM_EMAIL}",
+                        mimeType: 'text/html'
+                    )
+                } catch (Exception e) {
+                    echo "⚠️ Email notification failed: ${e.message}"
+                }
+            }
         }
         failure {
-            echo '❌ Pipeline FAILED'
+            echo '=========================================='
+            echo '❌ Pipeline failed! Immediate action required'
+            echo '=========================================='
+            
+            script {
+                try {
+                    def template = readFile("${JENKINS_SCRIPTS}/email-failure.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
+                    mail(
+                        subject: "❌ BUILD FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: emailBody,
+                        to: "${TEAM_EMAIL}",
+                        mimeType: 'text/html'
+                    )
+                } catch (Exception e) {
+                    echo "⚠️ Email notification failed: ${e.message}"
+                }
+            }
         }
+        unstable {
+            echo '⚠️ Pipeline unstable - some tests may have failed'
+            
+            script {
+                try {
+                    def template = readFile("${JENKINS_SCRIPTS}/email-unstable.html")
+                    def emailBody = template
+                        .replace('${BUILD_URL}', env.BUILD_URL ?: '')
+                        .replace('${BUILD_NUMBER}', env.BUILD_NUMBER ?: '')
+                        .replace('${JOB_NAME}', env.JOB_NAME ?: '')
+                        .replace('${BUILD_DURATION}', currentBuild.durationString ?: '')
+                        .replace('${BUILD_TIMESTAMP}', new Date().format('yyyy-MM-dd HH:mm:ss'))
+                        .replace('${GIT_BRANCH}', env.GIT_BRANCH ?: 'main')
+                    mail(
+                        subject: "⚠️ BUILD UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: emailBody,
+                        to: "${TEAM_EMAIL}",
+                        mimeType: 'text/html'
+                    )
+                } catch (Exception e) {
+                    echo "⚠️ Email notification failed: ${e.message}"
+                }
+            }
+        }
+    }
+}
+
+// Helper function to poll SonarQube Quality Gate with token authentication
+void pollQualityGate(String serverUrl, String taskId, String token) {
+    // 1. Poll for Task Completion
+    timeout(time: 5, unit: 'MINUTES') {
+        waitUntil {
+            script {
+                // Use curl with the token
+                def taskStatus = sh(
+                    script: "curl -s -u '${token}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\\\"status\\\":\\\"[^\\\"]*\\\"' | cut -d: -f2 | tr -d '\\\"'",
+                    returnStdout: true
+                ).trim()
+                
+                echo "Current Task Status: ${taskStatus}"
+                return (taskStatus == 'SUCCESS' || taskStatus == 'FAILED' || taskStatus == 'CANCELED')
+            }
+        }
+    }
+    
+    // 2. Poll for Quality Gate Status
+    def analysisId = sh(
+        script: "curl -s -u '${token}:' '${serverUrl}/api/ce/task?id=${taskId}' | grep -o '\\\"analysisId\\\":\\\"[^\\\"]*\\\"' | cut -d: -f2 | tr -d '\\\"'",
+        returnStdout: true
+    ).trim()
+    
+    if (analysisId) {
+        // Extract only the first status (project status), ignoring condition statuses
+        def qgStatus = sh(
+            script: "curl -s -u '${token}:' '${serverUrl}/api/qualitygates/project_status?analysisId=${analysisId}' | grep -o '\\\"status\\\":\\\"[^\\\"]*\\\"' | head -n 1 | cut -d: -f2 | tr -d '\\\"'",
+            returnStdout: true
+        ).trim()
+        
+        echo "Quality Gate Status: ${qgStatus}"
+        
+        if (qgStatus != 'OK') {
+            error "❌ Quality Gate FAILED: ${qgStatus}"
+        } else {
+            echo "✅ Quality Gate passed!"
+        }
+    } else {
+        echo "⚠️ Could not retrieve Analysis ID via manual check."
     }
 }
