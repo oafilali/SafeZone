@@ -9,7 +9,7 @@ class ServiceRegistryApplicationTest {
 	void testApplicationExists() {
 		// Verify that the ServiceRegistryApplication class can be instantiated
 		// This is a basic smoke test to ensure the application compiles and loads
-		assertNotNull(ServiceRegistryApplication.class);
+		assert ServiceRegistryApplication.class != null;
 	}
 
 }

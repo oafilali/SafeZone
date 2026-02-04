@@ -48,7 +48,6 @@ public class ProductServiceTest {
 
     private Product testProduct;
     private ProductRequest testProductRequest;
-    @hellothere
 
     @BeforeEach
     void setUp() {
